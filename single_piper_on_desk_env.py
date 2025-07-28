@@ -186,11 +186,11 @@ class PiperEnv(gym.Env):
         item_name = "apple"
         self.target_position, item_quat = self._get_body_pose(item_name)
         
-        max_radius = 0.03
+        max_radius = 0.1
         theta = np.random.uniform(0, 2 * np.pi)
         rho = max_radius * np.sqrt(np.random.uniform(0, 1))
         
-        x_world_target = rho * np.cos(theta) + 0.06
+        x_world_target = rho * np.cos(theta) + 0.1
         y_world_target = rho * np.sin(theta)
 
         self.target_position[0] = x_world_target
@@ -285,24 +285,35 @@ class PiperEnv(gym.Env):
                 
         return contact_found, total_force
 
-    def _check_gripper_contact_with_table(self) -> tuple[bool, float]:
+    def _check_gripper_contact_with_table(self) -> bool:
         """Check if gripper contacts table."""
-        total_force = 0.0
         contact_found = False
         
         for i in range(1, 9):
             link_name = f"link{i}"
-            link_contact, link_force = self._check_contact_between_bodies(link_name, "desk")
+            link_contact, _ = self._check_contact_between_bodies(link_name, "desk")
             if link_contact:
                 contact_found = True
-                total_force += link_force
+                break
 
-        wrist_contact, wrist_force = self._check_contact_between_bodies("wrist_camera", "desk")
-        if wrist_contact:
-            contact_found = True
-            total_force += wrist_force
+        if not contact_found:
+            wrist_contact, _ = self._check_contact_between_bodies("wrist_camera", "desk")
+            if wrist_contact:
+                contact_found = True
 
-        return contact_found, total_force
+        return contact_found
+
+    def _check_gripper_contact_with_apple(self) -> bool:
+        """Check if gripper fingers (link7, link8) are in contact with apple."""
+        contact_found = True
+        
+        for link_name in ["link7", "link8"]:
+            link_contact = self._check_contact_between_bodies(link_name, "apple")
+            if not link_contact:
+                contact_found = False
+                break
+        
+        return contact_found
 
     def _check_apple_fell_off_table(self) -> bool:
         """Check if apple fell off table."""
@@ -330,28 +341,33 @@ class PiperEnv(gym.Env):
         tcp_to_obj_dist = np.linalg.norm(end_ee_position - apple_position)
 
         reward = 0.0
-        # Reaching reward
+        # Stage 1: Reaching reward
         reaching_reward = 1 - np.tanh(5 * tcp_to_obj_dist)
         reward += reaching_reward
 
-        if tcp_to_obj_dist < 0.05:
-            reward += 0.3
+        # Stage 2: Grasping reward
+        grasped = self._check_gripper_contact_with_apple() and apple_position[2] > 0.768
+        if grasped:  # Check if gripper is grasping apple with sufficient force
+            # print("Gripper is grasping the apple.")
+            dis_to_rest = np.linalg.norm(self.data.qpos[:6] - self.init_qpos[:6])
+            reward += np.exp(-2 * dis_to_rest)
+            if dis_to_rest < 0.1:
+                self.goal_reached = True
+                reward += 1.0
 
-        if tcp_to_obj_dist < 0.03:
-            self.goal_reached = True
-            reward += 1.0
-        
         # Table contact penalty
-        table_contact, _ = self._check_gripper_contact_with_table()
+        table_contact = self._check_gripper_contact_with_table()
         if table_contact:
+            # print("Gripper is in contact with the table.")
             self.contact_streak += 1
+            reward -= 0.2
+            
+            # Large penalty for persistent table contact
             if self.contact_streak > self.max_contact_streak:
+                # print("Persistent table contact detected.")
                 reward -= 5.0
         else:
             self.contact_streak = 0
-        
-        if table_contact:
-            reward -= 0.2
 
         return reward
 
