@@ -1,0 +1,479 @@
+<mujoco model="go2_piper">
+  <compiler angle="radian" meshdir="assets" autolimits="true"/>
+
+  <option cone="elliptic" impratio="100"/>
+
+  <default>
+    <default class="go2">
+      <geom friction="0.6" margin="0.001" condim="1"/>
+      <joint axis="0 1 0" damping="2" armature="0.01" frictionloss="0.2"/>
+      <motor ctrlrange="-23.7 23.7"/>
+      <default class="abduction">
+        <joint axis="1 0 0" range="-1.0472 1.0472"/>
+      </default>
+      <default class="hip">
+        <default class="front_hip">
+          <joint range="-1.5708 3.4907"/>
+        </default>
+        <default class="back_hip">
+          <joint range="-0.5236 4.5379"/>
+        </default>
+      </default>
+      <default class="knee">
+        <joint range="-2.7227 -0.83776"/>
+        <motor ctrlrange="-45.43 45.43"/>
+      </default>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2"/>
+      </default>
+      <default class="collision">
+        <geom group="3"/>
+        <default class="foot">
+          <geom size="0.022" pos="-0.002 0 -0.213" priority="1" solimp="0.015 1 0.022" condim="6"
+            friction="0.8 0.02 0.01"/>
+        </default>
+      </default>
+    </default>
+
+
+    <default class="piper">
+      <joint frictionloss="0.3" armature="0.005"/>
+      <position inheritrange="1" forcerange="-100 100"/>
+      <default class="finger">
+        <joint frictionloss="0" type="slide"/>
+        <position forcerange="-10 10"/>
+      </default>
+      <default class="piper_visual">
+        <geom group="2" type="mesh" contype="0" conaffinity="0" density="0"/>
+      </default>
+      <default class="piper_collision">
+        <geom group="3" type="capsule"/>
+      </default>
+    </default>
+
+  </default>
+
+  <asset>
+    <material name="metal" rgba=".9 .95 .95 1"/>
+    <material name="black" rgba="0 0 0 1"/>
+    <material name="white" rgba="1 1 1 1"/>
+    <material name="gray" rgba="0.671705 0.692426 0.774270 1"/>
+
+    <material name="gray_mat" rgba="0.59 0.59 0.59 1"/>
+    <material name="light_gray_mat" rgba="0.98 0.98 0.98 1"/>
+    <material name="light_medium_gray_mat" rgba="0.85 0.85 0.85 1"/>
+    <material name="dark_gray_mat" rgba="0.086 0.086 0.086 1"/>
+    <material name="darker_gray_mat" rgba="0.14 0.14 0.14 1"/>
+    <material name="white_mat" rgba="1 1 1 1"/>
+    <material name="red_mat" rgba="0.82 0.15 0.15 1"/>
+    <material name="black_mat" rgba="0 0 0 1"/>
+    <material name="light_blue" rgba="0.79 0.82 0.93 1"/>
+
+    <!-- go2 -->
+    <mesh file="base_0.obj"/>
+    <mesh file="base_1.obj"/>
+    <mesh file="base_2.obj"/>
+    <mesh file="base_3.obj"/>
+    <mesh file="base_4.obj"/>
+    <mesh file="hip_0.obj"/>
+    <mesh file="hip_1.obj"/>
+    <mesh file="thigh_0.obj"/>
+    <mesh file="thigh_1.obj"/>
+    <mesh file="thigh_mirror_0.obj"/>
+    <mesh file="thigh_mirror_1.obj"/>
+    <mesh file="calf_0.obj"/>
+    <mesh file="calf_1.obj"/>
+    <mesh file="calf_mirror_0.obj"/>
+    <mesh file="calf_mirror_1.obj"/>
+    <mesh file="foot.obj"/>
+
+    <!-- piper 机械臂 -->
+    <mesh file="link2_0.obj"/>
+    <mesh file="link2_1.obj"/>
+    <mesh file="link2_2.obj"/>
+    <mesh file="link2_3.obj"/>
+    <mesh file="link2_4.obj"/>
+    <mesh file="link2_5.obj"/>
+    <mesh file="link2_6.obj"/>
+    <mesh file="link2_7.obj"/>
+    <mesh file="link2_8.obj"/>
+    <mesh file="link2_9.obj"/>
+    <mesh file="link2_10.obj"/>
+    <mesh file="link2_11.obj"/>
+    <mesh file="link2_12.obj"/>
+    <mesh file="link2_13.obj"/>
+    <mesh file="link2_14.obj"/>
+    <mesh file="link2_15.obj"/>
+    <mesh file="link2_16.obj"/>
+    <mesh file="link2_17.obj"/>
+    <mesh file="link2_18.obj"/>
+    <mesh file="link2_19.obj"/>
+    <mesh file="link2_20.obj"/>
+    <mesh file="link2_21.obj"/>
+    <mesh file="link2_22.obj"/>
+    <mesh file="link2_23.obj"/>
+    <mesh file="link2_24.obj"/>
+    <mesh file="link2_25.obj"/>
+    <mesh file="link2_26.obj"/>
+    <mesh file="link2_27.obj"/>
+    <mesh file="link2_28.obj"/>
+    <mesh file="link2_29.obj"/>
+    <mesh file="link2_30.obj"/>
+    <mesh file="link2_31.obj"/>
+    <mesh file="link3_0.obj"/>
+    <mesh file="link3_1.obj"/>
+    <mesh file="link3_2.obj"/>
+    <mesh file="link3_3.obj"/>
+    <mesh file="link3_4.obj"/>
+    <mesh file="link3_5.obj"/>
+    <mesh file="link3_7.obj"/>
+    <mesh file="link3_8.obj"/>
+    <mesh file="link3_9.obj"/>
+    <mesh file="link3_10.obj"/>
+    <mesh file="link3_11.obj"/>
+    <mesh file="link3_12.obj"/>
+    <mesh file="link3_13.obj"/>
+    <mesh file="link3_14.obj"/>
+    <mesh file="link3_15.obj"/>
+    <mesh file="link3_16.obj"/>
+    <mesh file="link3_17.obj"/>
+    <mesh file="link3_18.obj"/>
+    <mesh file="link3_19.obj"/>
+    <mesh file="link3_20.obj"/>
+    <mesh file="link3_21.obj"/>
+    <mesh file="link3_22.obj"/>
+    <mesh file="link3_23.obj"/>
+    <mesh file="link3_24.obj"/>
+    <mesh file="link3_25.obj"/>
+    <mesh file="link3_26.obj"/>
+    <mesh file="link3_27.obj"/>
+    <mesh file="link3_28.obj"/>
+    <mesh file="link4_2.obj"/>
+    <mesh file="link4_3.obj"/>
+    <mesh file="link4_4.obj"/>
+    <mesh file="link4_5.obj"/>
+    <mesh file="link4_6.obj"/>
+    <mesh file="link5_2.obj"/>
+    <mesh file="link5_3.obj"/>
+    <mesh file="link5_4.obj"/>
+    <mesh file="link5_5.obj"/>
+    <mesh file="link5_6.obj"/>
+    <mesh file="link5_7.obj"/>
+    <mesh file="link5_8.obj"/>
+    <mesh name="base_link" file="base_link.stl"/>
+    <mesh name="link1" file="link1.stl"/>
+    <mesh name="link2" file="link2.stl"/>
+    <mesh name="link2_gray" file="link2_gray.stl"/>
+    <mesh name="link3" file="link3.stl"/>
+    <mesh name="link4" file="link4.stl"/>
+    <mesh name="link5" file="link5.stl"/>
+    <mesh file="link6.stl"/>
+    <mesh file="link7.stl"/>
+    <mesh file="link8.stl"/>
+    <!-- 腕部相机 -->
+    <mesh name="wrist_camera" file="wrist_camera.stl" scale="1000 1000 1000"/>
+  </asset>
+
+  <worldbody>
+    <body name="base" pos="0 0 0.445" childclass="go2">
+      <inertial pos="0.021112 0 -0.005366" quat="-0.000543471 0.713435 -0.00173769 0.700719" mass="6.921"
+        diaginertia="0.107027 0.0980771 0.0244531"/>
+      <freejoint/>
+      <geom mesh="base_0" material="black" class="visual"/>
+      <geom mesh="base_1" material="black" class="visual"/>
+      <geom mesh="base_2" material="black" class="visual"/>
+      <geom mesh="base_3" material="white" class="visual"/>
+      <geom mesh="base_4" material="gray" class="visual"/>
+      <geom size="0.1881 0.04675 0.057" type="box" class="collision"/>
+      <geom size="0.05 0.045" pos="0.285 0 0.01" type="cylinder" class="collision"/>
+      <geom size="0.047" pos="0.293 0 -0.06" class="collision"/>
+      <site name="imu" pos="-0.02557 0 0.04232"/>
+
+
+      <body name="base_link" pos="0 0 0.057" childclass="piper" gravcomp="1">
+        <inertial pos="-0.00979275 1.82906e-06 0.04101" quat="0.692988 -0.137524 -0.137826 0.69416" mass="0.162549"
+          diaginertia="0.000269445 0.000227478 0.000221437"/>
+        <geom class="piper_visual" density="0" mesh="base_link" material="gray_mat"/>
+        <geom class="piper_collision" mesh="base_link"/>
+        <body name="link1" pos="0 0 0.123" quat="0.707105 0 0 -0.707108" gravcomp="1">
+          <inertial pos="0.00131676 0.000310289 -0.00922875" quat="0.557105 0.432155 0.377373 0.600388" mass="0.097868"
+            diaginertia="9.25942e-05 8.3083e-05 7.69469e-05"/>
+          <joint name="joint1" axis="0 0 1" range="-2.618 2.618"/>
+          <geom class="piper_visual" density="0" mesh="link1" material="gray_mat"/>
+          <geom class="piper_collision" mesh="link1"/>
+          <body name="link2" quat="0.499998 0.5 -0.500002 -0.5" gravcomp="1">
+            <inertial pos="0.148794 -0.00242027 0.00175155" quat="-0.0249063 0.70684 0.00803509 0.706889" mass="0.290889"
+              diaginertia="0.00177549 0.00173142 0.00014552"/>
+            <joint name="joint2" axis="0 0 1" range="0 3.14"/>
+            <geom mesh="link2_0" material="gray_mat" class="piper_visual"/>
+            <geom mesh="link2_1" material="darker_gray_mat" class="piper_visual"/>
+            <geom mesh="link2_2" material="darker_gray_mat" class="piper_visual"/>
+            <geom mesh="link2_3" material="dark_gray_mat" class="piper_visual"/>
+            <geom mesh="link2_4" material="dark_gray_mat" class="piper_visual"/>
+            <geom mesh="link2_5" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_6" material="dark_gray_mat" class="piper_visual"/>
+            <geom mesh="link2_7" material="gray_mat" class="piper_visual"/>
+            <geom mesh="link2_8" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_9" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_10" material="gray_mat" class="piper_visual"/>
+            <geom mesh="link2_11" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_12" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_13" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_14" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_15" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_16" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_17" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_18" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_19" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_20" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_21" material="gray_mat" class="piper_visual"/>
+            <geom mesh="link2_22" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_23" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_24" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_25" material="dark_gray_mat" class="piper_visual"/>
+            <geom mesh="link2_26" material="red_mat" class="piper_visual"/>
+            <geom mesh="link2_27" material="darker_gray_mat" class="piper_visual"/>
+            <geom mesh="link2_28" material="darker_gray_mat" class="piper_visual"/>
+            <geom mesh="link2_29" material="darker_gray_mat" class="piper_visual"/>
+            <geom mesh="link2_30" material="darker_gray_mat" class="piper_visual"/>
+            <geom mesh="link2_31" material="light_medium_gray_mat" class="piper_visual"/>
+            <geom mesh="link2" class="piper_collision"/>
+            <body name="link3" pos="0.28358 0.028726 0" quat="0.998726 0 0 0.0504536" gravcomp="1">
+              <inertial pos="-0.0996835 0.0349477 0.000508026" quat="0.0777021 0.702287 -0.0990541 0.700674"
+                mass="0.290848" diaginertia="0.000241946 0.000222224 0.000100384"/>
+              <joint name="joint3" pos="0 0 0" axis="0 0 1" range="-2.697 0"/>
+              <geom mesh="link3_0" material="darker_gray_mat" class="piper_visual"/>
+              <geom mesh="link3_1" material="red_mat" class="piper_visual"/>
+              <geom mesh="link3_2" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_3" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_4" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_5" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_7" material="darker_gray_mat" class="piper_visual"/>
+              <geom mesh="link3_8" material="white_mat" class="piper_visual"/>
+              <geom mesh="link3_9" material="red_mat" class="piper_visual"/>
+              <geom mesh="link3_10" material="white_mat" class="piper_visual"/>
+              <geom mesh="link3_11" material="white_mat" class="piper_visual"/>
+              <geom mesh="link3_12" material="white_mat" class="piper_visual"/>
+              <geom mesh="link3_13" material="white_mat" class="piper_visual"/>
+              <geom mesh="link3_14" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_15" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_16" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_17" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_18" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_19" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_20" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_21" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_22" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_23" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_24" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_25" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_26" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_27" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3_28" material="gray_mat" class="piper_visual"/>
+              <geom mesh="link3" class="piper_collision"/>
+              <body name="link4" pos="-0.24221 0.068514 0" quat="0.544767 -0.544769 -0.450809 0.450808" gravcomp="1">
+                <inertial pos="0.000276465 -0.00102804 -0.00472831" quat="0.492305 0.505285 0.503294 0.499017"
+                  mass="0.127087" diaginertia="4.87057e-05 4.10595e-05 3.82001e-05"/>
+                <joint name="joint4" axis="0 0 1" range="-1.832 1.832"/>
+                <geom mesh="link4_2" material="gray_mat" class="piper_visual"/>
+                <geom mesh="link4_3" material="darker_gray_mat" class="piper_visual"/>
+                <geom mesh="link4_4" material="gray_mat" class="piper_visual"/>
+                <geom mesh="link4_5" material="gray_mat" class="piper_visual"/>
+                <geom mesh="link4_6" material="gray_mat" class="piper_visual"/>
+                <geom mesh="link4" class="piper_collision"/>
+                <body name="link5" quat="0.707105 0.707108 0 0" gravcomp="1">
+                  <inertial pos="8.82262e-05 0.0566829 -0.0019612" quat="0.507447 0.490986 0.506887 0.494466"
+                    mass="0.144711" diaginertia="0.001 0.001 0.001"/>
+                  <joint name="joint5" axis="0 0 1" range="-1.22 1.22"/>
+                  <geom mesh="link5_2" material="black_mat" class="piper_visual"/>
+                  <geom mesh="link5_3" material="black_mat" class="piper_visual"/>
+                  <geom mesh="link5_4" material="darker_gray_mat" class="piper_visual"/>
+                  <geom mesh="link5_5" material="gray_mat" class="piper_visual"/>
+                  <geom mesh="link5_6" material="light_gray_mat" class="piper_visual"/>
+                  <geom mesh="link5_7" material="gray_mat" class="piper_visual"/>
+                  <geom mesh="link5_8" material="gray_mat" class="piper_visual"/>
+                  <geom mesh="link5" class="piper_collision"/>
+                  <body name="link6" pos="0 0.091 0.0014165" quat="0 0 -0.707105 -0.707108" gravcomp="1">
+                    <inertial pos="0.0010312 0.0121761 0.0315481" quat="0.0230402 0.707091 0.0373344 0.70576" mass="1.2"
+                      diaginertia="0.001 0.001 0.001"/>
+                    <joint name="joint6" axis="0 0 1" range="-3.14 3.14"/>
+                    <geom quat="0.707105 0 0 0.707108" mesh="link6" material="gray_mat" class="piper_visual"/>
+                    <geom quat="0.707105 0 0 0.707108" mesh="link6" class="piper_collision"/>
+                    <geom type="mesh" pos="-0.034 -0.062 0.014" euler="0 -1.57 0" contype="1" conaffinity="1" group="1" rgba="0.792157 0.819608 0.933333 1" mesh="wrist_camera"/>
+                    <camera name="wrist_cam" pos="-0.08 0.0 0.05" fovy="58" mode="fixed" euler="3.14 -0.34 1.57"/>
+                    <body name="link7" pos="0 0 0.13503" quat="1.89468e-08 1.89469e-08 0.707108 0.707105" gravcomp="1">
+                      <inertial pos="-0.000277778 -0.0467673 -0.00921029" quat="0.46134 0.536174 -0.553273 0.439968"
+                        mass="0.0264823" diaginertia="0.001 0.001 0.001"/>
+                      <joint name="joint7" axis="0 0 -1" class="finger" range="0 0.035"/>
+                      <geom mesh="link7" material="gray_mat" class="piper_visual"/>
+                      <geom type="box" size=".012 .015 .0025" pos="0 -0.015 -0.0025" rgba="1 0 0 .2" class="piper_collision"/>
+                      <geom type="box" size=".015 .015 .0025" pos="0 -0.045 -0.0025" rgba="0 0 1 .2" class="piper_collision"/>
+                    </body>
+                    <body name="link8" pos="0 0 0.13503" quat="1.89468e-08 -1.89469e-08 -0.707108 0.707105" gravcomp="1">
+                      <inertial pos="0.000277817 0.0467674 -0.0092103" quat="0.553273 0.439968 -0.46134 0.536174"
+                        mass="0.0264822" diaginertia="0.001 0.001 0.001"/>
+                      <joint name="joint8" axis="0 0 1" class="finger" range="-0.035 0"/>
+                      <geom mesh="link8" material="gray_mat" class="piper_visual"/>
+                      <geom type="box" size=".012 .015 .0025" pos="0 0.015 -0.0025" rgba="1 0 0 .2" class="piper_collision"/>
+                      <geom type="box" size=".015 .015 .0025" pos="0 0.045 -0.0025" rgba="0 0 1 .2" class="piper_collision"/>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+
+
+
+
+      <body name="FL_hip" pos="0.1934 0.0465 0">
+        <inertial pos="-0.0054 0.00194 -0.000105" quat="0.497014 0.499245 0.505462 0.498237" mass="0.678"
+          diaginertia="0.00088403 0.000596003 0.000479967"/>
+        <joint name="FL_hip_joint" class="abduction"/>
+        <geom mesh="hip_0" material="metal" class="visual"/>
+        <geom mesh="hip_1" material="gray" class="visual"/>
+        <geom size="0.046 0.02" pos="0 0.08 0" quat="1 1 0 0" type="cylinder" class="collision"/>
+        <body name="FL_thigh" pos="0 0.0955 0">
+          <inertial pos="-0.00374 -0.0223 -0.0327" quat="0.829533 0.0847635 -0.0200632 0.551623" mass="1.152"
+            diaginertia="0.00594973 0.00584149 0.000878787"/>
+          <joint name="FL_thigh_joint" class="front_hip"/>
+          <geom mesh="thigh_0" material="metal" class="visual"/>
+          <geom mesh="thigh_1" material="gray" class="visual"/>
+          <geom size="0.1065 0.01225 0.017" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" class="collision"/>
+          <body name="FL_calf" pos="0 0 -0.213">
+            <inertial pos="0.00629595 -0.000622121 -0.141417" quat="0.710672 0.00154099 -0.00450087 0.703508"
+              mass="0.241352" diaginertia="0.0014901 0.00146356 5.31397e-05"/>
+            <joint name="FL_calf_joint" class="knee"/>
+            <geom mesh="calf_0" material="gray" class="visual"/>
+            <geom mesh="calf_1" material="black" class="visual"/>
+            <geom size="0.012 0.06" pos="0.008 0 -0.06" quat="0.994493 0 -0.104807 0" type="cylinder" class="collision"/>
+            <geom size="0.011 0.0325" pos="0.02 0 -0.148" quat="0.999688 0 0.0249974 0" type="cylinder" class="collision"/>
+            <geom pos="0 0 -0.213" mesh="foot" class="visual" material="black"/>
+            <geom name="FL" class="foot"/>
+          </body>
+        </body>
+      </body>
+      <body name="FR_hip" pos="0.1934 -0.0465 0">
+        <inertial pos="-0.0054 -0.00194 -0.000105" quat="0.498237 0.505462 0.499245 0.497014" mass="0.678"
+          diaginertia="0.00088403 0.000596003 0.000479967"/>
+        <joint name="FR_hip_joint" class="abduction"/>
+        <geom mesh="hip_0" material="metal" class="visual" quat="4.63268e-05 1 0 0"/>
+        <geom mesh="hip_1" material="gray" class="visual" quat="4.63268e-05 1 0 0"/>
+        <geom size="0.046 0.02" pos="0 -0.08 0" quat="0.707107 0.707107 0 0" type="cylinder" class="collision"/>
+        <body name="FR_thigh" pos="0 -0.0955 0">
+          <inertial pos="-0.00374 0.0223 -0.0327" quat="0.551623 -0.0200632 0.0847635 0.829533" mass="1.152"
+            diaginertia="0.00594973 0.00584149 0.000878787"/>
+          <joint name="FR_thigh_joint" class="front_hip"/>
+          <geom mesh="thigh_mirror_0" material="metal" class="visual"/>
+          <geom mesh="thigh_mirror_1" material="gray" class="visual"/>
+          <geom size="0.1065 0.01225 0.017" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" class="collision"/>
+          <body name="FR_calf" pos="0 0 -0.213">
+            <inertial pos="0.00629595 0.000622121 -0.141417" quat="0.703508 -0.00450087 0.00154099 0.710672"
+              mass="0.241352" diaginertia="0.0014901 0.00146356 5.31397e-05"/>
+            <joint name="FR_calf_joint" class="knee"/>
+            <geom mesh="calf_mirror_0" material="gray" class="visual"/>
+            <geom mesh="calf_mirror_1" material="black" class="visual"/>
+            <geom size="0.013 0.06" pos="0.01 0 -0.06" quat="0.995004 0 -0.0998334 0" type="cylinder" class="collision"/>
+            <geom size="0.011 0.0325" pos="0.02 0 -0.148" quat="0.999688 0 0.0249974 0" type="cylinder" class="collision"/>
+            <geom pos="0 0 -0.213" mesh="foot" class="visual" material="black"/>
+            <geom name="FR" class="foot"/>
+          </body>
+        </body>
+      </body>
+      <body name="RL_hip" pos="-0.1934 0.0465 0">
+        <inertial pos="0.0054 0.00194 -0.000105" quat="0.505462 0.498237 0.497014 0.499245" mass="0.678"
+          diaginertia="0.00088403 0.000596003 0.000479967"/>
+        <joint name="RL_hip_joint" class="abduction"/>
+        <geom mesh="hip_0" material="metal" class="visual" quat="4.63268e-05 0 1 0"/>
+        <geom mesh="hip_1" material="gray" class="visual" quat="4.63268e-05 0 1 0"/>
+        <geom size="0.046 0.02" pos="0 0.08 0" quat="0.707107 0.707107 0 0" type="cylinder" class="collision"/>
+        <body name="RL_thigh" pos="0 0.0955 0">
+          <inertial pos="-0.00374 -0.0223 -0.0327" quat="0.829533 0.0847635 -0.0200632 0.551623" mass="1.152"
+            diaginertia="0.00594973 0.00584149 0.000878787"/>
+          <joint name="RL_thigh_joint" class="back_hip"/>
+          <geom mesh="thigh_0" material="metal" class="visual"/>
+          <geom mesh="thigh_1" material="gray" class="visual"/>
+          <geom size="0.1065 0.01225 0.017" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" class="collision"/>
+          <body name="RL_calf" pos="0 0 -0.213">
+            <inertial pos="0.00629595 -0.000622121 -0.141417" quat="0.710672 0.00154099 -0.00450087 0.703508"
+              mass="0.241352" diaginertia="0.0014901 0.00146356 5.31397e-05"/>
+            <joint name="RL_calf_joint" class="knee"/>
+            <geom mesh="calf_0" material="gray" class="visual"/>
+            <geom mesh="calf_1" material="black" class="visual"/>
+            <geom size="0.013 0.06" pos="0.01 0 -0.06" quat="0.995004 0 -0.0998334 0" type="cylinder" class="collision"/>
+            <geom size="0.011 0.0325" pos="0.02 0 -0.148" quat="0.999688 0 0.0249974 0" type="cylinder" class="collision"/>
+            <geom pos="0 0 -0.213" mesh="foot" class="visual" material="black"/>
+            <geom name="RL" class="foot"/>
+          </body>
+        </body>
+      </body>
+      <body name="RR_hip" pos="-0.1934 -0.0465 0">
+        <inertial pos="0.0054 -0.00194 -0.000105" quat="0.499245 0.497014 0.498237 0.505462" mass="0.678"
+          diaginertia="0.00088403 0.000596003 0.000479967"/>
+        <joint name="RR_hip_joint" class="abduction"/>
+        <geom mesh="hip_0" material="metal" class="visual" quat="2.14617e-09 4.63268e-05 4.63268e-05 -1"/>
+        <geom mesh="hip_1" material="gray" class="visual" quat="2.14617e-09 4.63268e-05 4.63268e-05 -1"/>
+        <geom size="0.046 0.02" pos="0 -0.08 0" quat="0.707107 0.707107 0 0" type="cylinder" class="collision"/>
+        <body name="RR_thigh" pos="0 -0.0955 0">
+          <inertial pos="-0.00374 0.0223 -0.0327" quat="0.551623 -0.0200632 0.0847635 0.829533" mass="1.152"
+            diaginertia="0.00594973 0.00584149 0.000878787"/>
+          <joint name="RR_thigh_joint" class="back_hip"/>
+          <geom mesh="thigh_mirror_0" material="metal" class="visual"/>
+          <geom mesh="thigh_mirror_1" material="gray" class="visual"/>
+          <geom size="0.1065 0.01225 0.017" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" class="collision"/>
+          <body name="RR_calf" pos="0 0 -0.213">
+            <inertial pos="0.00629595 0.000622121 -0.141417" quat="0.703508 -0.00450087 0.00154099 0.710672"
+              mass="0.241352" diaginertia="0.0014901 0.00146356 5.31397e-05"/>
+            <joint name="RR_calf_joint" class="knee"/>
+            <geom mesh="calf_mirror_0" material="gray" class="visual"/>
+            <geom mesh="calf_mirror_1" material="black" class="visual"/>
+            <geom size="0.013 0.06" pos="0.01 0 -0.06" quat="0.995004 0 -0.0998334 0" type="cylinder" class="collision"/>
+            <geom size="0.011 0.0325" pos="0.02 0 -0.148" quat="0.999688 0 0.0249974 0" type="cylinder" class="collision"/>
+            <geom pos="0 0 -0.213" mesh="foot" class="visual" material="black"/>
+            <geom name="RR" class="foot"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+
+  <contact>
+    <exclude body1="base_link" body2="link1"/>
+  </contact>
+
+  <equality>
+    <joint joint1="joint8" joint2="joint7" polycoef="0 -1 0 0 0"/>
+  </equality>
+
+  <actuator>
+    <motor class="abduction" name="FL_hip" joint="FL_hip_joint"/>
+    <motor class="hip" name="FL_thigh" joint="FL_thigh_joint"/>
+    <motor class="knee" name="FL_calf" joint="FL_calf_joint"/>
+    <motor class="abduction" name="FR_hip" joint="FR_hip_joint"/>
+    <motor class="hip" name="FR_thigh" joint="FR_thigh_joint"/>
+    <motor class="knee" name="FR_calf" joint="FR_calf_joint"/>
+    <motor class="abduction" name="RL_hip" joint="RL_hip_joint"/>
+    <motor class="hip" name="RL_thigh" joint="RL_thigh_joint"/>
+    <motor class="knee" name="RL_calf" joint="RL_calf_joint"/>
+    <motor class="abduction" name="RR_hip" joint="RR_hip_joint"/>
+    <motor class="hip" name="RR_thigh" joint="RR_thigh_joint"/>
+    <motor class="knee" name="RR_calf" joint="RR_calf_joint"/>
+
+
+    <position name="joint1" joint="joint1" class="piper" kp="80" kv="5"/>
+    <position name="joint2" joint="joint2" class="piper" kp="80" kv="5"/>
+    <position name="joint3" joint="joint3" class="piper" kp="80" kv="5"/>
+    <position name="joint4" joint="joint4" class="piper" kp="40" kv="5"/>
+    <position name="joint5" joint="joint5" class="piper" kp="10" kv="1.5"/>
+    <position name="joint6" joint="joint6" class="piper" kp="10" kv="1.5"/>
+    <position name="gripper" joint="joint7" class="finger" kp="40" kv="5"/>
+  </actuator>
+
+  <!-- <keyframe>
+    <key name="home" qpos="0 0 0.27 1 0 0 0 0 0.9 -1.8 0 0.9 -1.8 0 0.9 -1.8 0 0.9 -1.8"
+      ctrl="0 0.9 -1.8 0 0.9 -1.8 0 0.9 -1.8 0 0.9 -1.8"/>
+  </keyframe> -->
+</mujoco>
