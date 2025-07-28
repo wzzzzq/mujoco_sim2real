@@ -9,6 +9,7 @@ import gymnasium as gym
 from gymnasium import spaces
 import os
 from scipy.spatial.transform import Rotation as R
+import time
 
 
 class PiperEnv(gym.Env):
@@ -378,7 +379,6 @@ class PiperEnv(gym.Env):
         new_qpos = self.apply_joint_deltas_with_limits(current_qpos, delta_action)
         
         self.data.ctrl[:7] = new_qpos
-        self.data.ctrl[6] = 0.035
         
         for i in range(300):
             mujoco.mj_step(self.model, self.data)
@@ -386,6 +386,7 @@ class PiperEnv(gym.Env):
             # Render if viewer is available
             if self.render_mode and self.handle:
                 self.handle.sync()
+                time.sleep(0.002)
             
             current_qpos = self.data.qpos[:7].copy()
             pos_err = np.linalg.norm(new_qpos - current_qpos)
