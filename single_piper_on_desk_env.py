@@ -115,7 +115,7 @@ class PiperEnv(gym.Env):
     def map_action_to_joint_deltas(self, action: np.ndarray) -> np.ndarray:
         """Map [-1, 1] action to joint angle increments."""
         max_delta_per_step = np.array([
-            0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01
+            0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.05
         ], dtype=np.float32)
         
         # Ensure action is a numpy array with proper dtype
@@ -361,7 +361,7 @@ class PiperEnv(gym.Env):
         if table_contact:
             # print("Gripper is in contact with the table.")
             self.contact_streak += 1
-            reward -= 0.2
+            reward -= 0.5
             
             # Large penalty for persistent table contact
             if self.contact_streak > self.max_contact_streak:
