@@ -130,8 +130,7 @@ def test_policy(checkpoint_path, num_episodes=3, deterministic=True, max_steps=6
         episode_rewards.append(episode_reward)
         episode_lengths.append(episode_length)
         
-        # Check for success (you can define your own success criteria)
-        if episode_reward > 0:  # Simple success criterion
+        if info["is_success"]:
             success_count += 1
             print(f"  ✓ Episode successful!")
         
