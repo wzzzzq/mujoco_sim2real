@@ -79,7 +79,7 @@ class PiperEnv(gym.Env):
         self.init_qpos = np.zeros(8)
         self.init_qvel = np.zeros(8)
         self.contact_streak = 0
-        self.max_contact_streak = 15
+        self.max_contact_streak = 30
         
         # Initialize persistent renderer for efficiency
         self._renderer = None
@@ -380,18 +380,18 @@ class PiperEnv(gym.Env):
         
         self.data.ctrl[:7] = new_qpos
         
-        for i in range(300):
+        for i in range(100):
             mujoco.mj_step(self.model, self.data)
             
             # Render if viewer is available
             if self.render_mode and self.handle:
                 self.handle.sync()
             
-            # time.sleep(0.002)
+            time.sleep(0.002)
             
             current_qpos = self.data.qpos[:7].copy()
             pos_err = np.linalg.norm(new_qpos - current_qpos)
-            if pos_err < 0.06:
+            if pos_err < 0.1:
                 break
 
         self.step_number += 1

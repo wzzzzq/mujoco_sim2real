@@ -118,10 +118,6 @@ def test_policy(checkpoint_path, num_episodes=3, deterministic=True, max_steps=6
             # Check if episode is done
             done = terminated or truncated
             
-            if render:
-                # Small delay for visualization
-                time.sleep(0.05)
-            
             # Print step info
             if step % 10 == 0 or done:
                 print(f"  Step {step:2d}: reward={reward:+6.3f}, total_reward={episode_reward:+7.3f}")
