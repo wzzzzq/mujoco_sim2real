@@ -19,7 +19,7 @@ from torch.distributions.normal import Normal
 from single_piper_on_desk_env import PiperEnv
 
 
-def test_policy(checkpoint_path, num_episodes=3, deterministic=True, max_steps=64, render=True):
+def test_policy(checkpoint_path, num_episodes=3, deterministic=True, max_steps=128, render=True):
     """
     Test a trained policy by loading the checkpoint and running episodes.
     Handles RGB + state observation format used in training.
@@ -190,7 +190,7 @@ def main():
                         help="Number of episodes to run")
     parser.add_argument("--deterministic", action="store_true",
                         help="Use deterministic policy (no action noise)")
-    parser.add_argument("--max-steps", type=int, default=64,
+    parser.add_argument("--max-steps", type=int, default=128,
                         help="Maximum steps per episode")
     parser.add_argument("--no-render", action="store_true",
                         help="Disable rendering")

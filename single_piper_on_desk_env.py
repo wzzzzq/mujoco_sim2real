@@ -115,7 +115,7 @@ class PiperEnv(gym.Env):
     def map_action_to_joint_deltas(self, action: np.ndarray) -> np.ndarray:
         """Map [-1, 1] action to joint angle increments."""
         max_delta_per_step = np.array([
-            0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.05
+            0.08, 0.06, 0.06, 0.06, 0.06, 0.08, 0.02
         ], dtype=np.float32)
         
         # Ensure action is a numpy array with proper dtype
@@ -380,7 +380,7 @@ class PiperEnv(gym.Env):
         
         self.data.ctrl[:7] = new_qpos
         
-        for i in range(100):
+        for i in range(30):
             mujoco.mj_step(self.model, self.data)
             
             # Render if viewer is available
@@ -453,3 +453,4 @@ if __name__ == "__main__":
         print(f"Step {i}: reward={reward:.3f}, terminated={terminated}, truncated={truncated}")
         if terminated or truncated:
             obs, info = env.reset()
+        time.sleep(0.1)

@@ -69,9 +69,9 @@ class PPOArgs:
     """whether to let parallel environments reset upon termination instead of truncation"""
     eval_partial_reset: bool = False
     """whether to let parallel evaluation environments reset upon termination instead of truncation"""
-    num_steps: int = 50
+    num_steps: int = 100
     """the number of steps to run in each environment per policy rollout"""
-    num_eval_steps: int = 65
+    num_eval_steps: int = 129
     """the number of steps to run in each evaluation environment during evaluation"""
     reconfiguration_freq: Optional[int] = None
     """how often to reconfigure the environment during training"""
@@ -339,7 +339,7 @@ def train(args: PPOArgs):
     # Remove ManiSkill wrappers - not needed for our simple environment
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    max_episode_steps = 64  # Fixed episode length for our environment
+    max_episode_steps = 128  # Fixed episode length for our environment
     logger = None
     if not args.evaluate:
         print("Running training")
