@@ -13,8 +13,8 @@ python train_ppo_rgb.py \
 
 To train without rendering (faster, multiple environments):
 python train_ppo_rgb.py \
---ppo.total-timesteps 10000000 \
---ppo.num-envs 24 \
+--ppo.total-timesteps 100000000 \
+--ppo.num-envs 50 \
 --ppo.num-eval-envs 8 \
 --ppo.learning-rate 3e-4 \
 --ppo.num-minibatches 8 \

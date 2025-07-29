@@ -387,11 +387,11 @@ class PiperEnv(gym.Env):
             if self.render_mode and self.handle:
                 self.handle.sync()
             
-            time.sleep(0.002)
+            # time.sleep(0.002)
             
             current_qpos = self.data.qpos[:7].copy()
             pos_err = np.linalg.norm(new_qpos - current_qpos)
-            if pos_err < 0.05:
+            if pos_err < 0.06:
                 break
 
         self.step_number += 1
