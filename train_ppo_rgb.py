@@ -14,11 +14,15 @@ python train_ppo_rgb.py \
 To train without rendering (faster, multiple environments):
 python train_ppo_rgb.py \
 --ppo.total-timesteps 100000000 \
---ppo.num-envs 50 \
+--ppo.num-envs 200 \
+--ppo.num-steps 16 \
 --ppo.num-eval-envs 8 \
 --ppo.learning-rate 3e-4 \
---ppo.num-minibatches 8 \
+--ppo.num-minibatches 16 \
 --ppo.track
+
+Note: For large num_envs (>50), reduce num_steps to maintain reasonable batch sizes.
+Recommended: batch_size = num_envs * num_steps should be 1000-8000 for optimal performance.
 """
 
 from dataclasses import dataclass, field
