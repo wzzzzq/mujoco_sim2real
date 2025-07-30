@@ -75,8 +75,13 @@ class PiperEnv(gym.Env):
 
         self.goal_reached = False
         self._reset_noise_scale = 0.0
-        self.episode_len = 64
+        self.episode_len = 128
         self.init_qpos = np.zeros(8)
+        self.init_qpos[1] = 1.1
+        self.init_qpos[2] = -0.95
+        self.init_qpos[4] = 0.976
+        self.init_qpos[6] = 0.035
+        self.init_qpos[7] = -0.035
         self.init_qvel = np.zeros(8)
         self.contact_streak = 0
         self.max_contact_streak = 30
@@ -157,7 +162,9 @@ class PiperEnv(gym.Env):
         qpos[1] = 1.1
         qpos[2] = -0.95
         qpos[4] = 0.976
-        
+        qpos[6] = 0.035
+        qpos[7] = -0.035
+
         self._set_state(qpos, qvel)
         self._reset_object_pose()
         
@@ -199,6 +206,15 @@ class PiperEnv(gym.Env):
         self.target_position[2] = 0.768
         
         self.set_goal_pose("apple", self.target_position, item_quat)
+        
+        # Reset apple velocity to zero
+        apple_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "apple")
+        if apple_body_id != -1:
+            apple_joint_id = self.model.body_jntadr[apple_body_id]
+            apple_qveladr = self.model.jnt_dofadr[apple_joint_id]
+            
+            # Reset linear and angular velocities to zero
+            self.data.qvel[apple_qveladr:apple_qveladr + 6] = 0.0
 
     def _get_rgb_observation(self):
         """Get RGB camera observation."""
@@ -453,4 +469,4 @@ if __name__ == "__main__":
         print(f"Step {i}: reward={reward:.3f}, terminated={terminated}, truncated={truncated}")
         if terminated or truncated:
             obs, info = env.reset()
-        time.sleep(0.1)
+        # time.sleep(0.1)
