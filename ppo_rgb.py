@@ -279,10 +279,16 @@ class Logger:
     def add_scalar(self, tag, scalar_value, step):
         if self.log_wandb:
             import wandb
-            wandb.log({tag: scalar_value}, step=step)
-        self.writer.add_scalar(tag, scalar_value, step)
+            # Log with explicit step to ensure proper tracking
+            wandb.log({tag: scalar_value, "global_step": step}, step=step)
+        if self.writer:
+            self.writer.add_scalar(tag, scalar_value, step)
     def close(self):
-        self.writer.close()
+        if self.writer:
+            self.writer.close()
+        if self.log_wandb:
+            import wandb
+            wandb.finish()
 
 def train(args: PPOArgs):
     args.batch_size = int(args.num_envs * args.num_steps)
@@ -363,11 +369,17 @@ def train(args: PPOArgs):
                 save_code=True,
                 group=args.wandb_group,
                 tags=["ppo", "rgb", "robotics", "manipulation", "piper"],
-                notes=f"RGB+State PPO training on Piper robot grasping task. Envs: {args.num_envs}, LR: {args.learning_rate}"
+                notes=f"RGB+State PPO training on Piper robot grasping task. Envs: {args.num_envs}, LR: {args.learning_rate}",
+                resume="allow"  # Allow resuming runs if they get interrupted
             )
             # Define custom metrics for proper step tracking
             wandb.define_metric("global_step")
             wandb.define_metric("*", step_metric="global_step")
+            # Define custom charts for better visualization
+            wandb.define_metric("train/rollout_mean_reward", step_metric="global_step")
+            wandb.define_metric("train/rollout_success_rate", step_metric="global_step")
+            wandb.define_metric("eval/episode_reward_mean", step_metric="global_step")
+            wandb.define_metric("eval/success_rate", step_metric="global_step")
         writer = SummaryWriter(f"runs/{run_name}")
         writer.add_text(
             "hyperparameters",
@@ -418,6 +430,12 @@ def train(args: PPOArgs):
     for iteration in range(1, args.num_iterations + 1):
         print(f"Epoch: {iteration}, global_step={global_step}")
         final_values = torch.zeros((args.num_steps, args.num_envs), device=device)
+        
+        # Track rollout-level episode statistics
+        rollout_episode_rewards = []
+        rollout_episode_successes = []
+        rollout_episode_lengths = []
+        
         agent.eval()
         if iteration % args.eval_freq == 1:
             print("Evaluating")
@@ -516,18 +534,25 @@ def train(args: PPOArgs):
                 for info in final_infos:
                     if info and "episode" in info:
                         episode_info = info["episode"]
+                        # Extract scalar values from numpy arrays
+                        episode_reward = float(episode_info["r"])
+                        episode_length = int(episode_info["l"])
+                        
+                        # Collect for rollout-level statistics
+                        rollout_episode_rewards.append(episode_reward)
+                        rollout_episode_lengths.append(episode_length)
+                        
                         if logger is not None:
-                            # Extract scalar values from numpy arrays
-                            episode_reward = float(episode_info["r"])
-                            episode_length = int(episode_info["l"])
                             logger.add_scalar("train/episode_reward", episode_reward, global_step)
                             logger.add_scalar("train/episode_length", episode_length, global_step)
                             print(f"Train episode: reward={episode_reward:.3f}, length={episode_length}")
                         
                         # Log custom success info if available
-                        if "is_success" in info and logger is not None:
+                        if "is_success" in info:
                             success_value = float(info["is_success"])
-                            logger.add_scalar("train/episode_success", success_value, global_step)
+                            rollout_episode_successes.append(success_value)
+                            if logger is not None:
+                                logger.add_scalar("train/episode_success", success_value, global_step)
 
                 # Convert final observations to tensor format for value computation
                 try:
@@ -542,6 +567,27 @@ def train(args: PPOArgs):
                     pass  # Skip if final observation handling fails
         rollout_time = time.perf_counter() - rollout_time
         cumulative_times["rollout_time"] += rollout_time
+        
+        # Log rollout-level statistics
+        if rollout_episode_rewards and logger is not None:
+            rollout_mean_reward = np.mean(rollout_episode_rewards)
+            rollout_max_reward = np.max(rollout_episode_rewards)
+            rollout_min_reward = np.min(rollout_episode_rewards)
+            logger.add_scalar("train/rollout_mean_reward", rollout_mean_reward, global_step)
+            logger.add_scalar("train/rollout_max_reward", rollout_max_reward, global_step)
+            logger.add_scalar("train/rollout_min_reward", rollout_min_reward, global_step)
+            logger.add_scalar("train/rollout_num_episodes", len(rollout_episode_rewards), global_step)
+            print(f"Rollout {iteration}: {len(rollout_episode_rewards)} episodes, mean_reward={rollout_mean_reward:.3f}")
+            
+            if rollout_episode_successes:
+                rollout_success_rate = np.mean(rollout_episode_successes)
+                logger.add_scalar("train/rollout_success_rate", rollout_success_rate, global_step)
+                print(f"Rollout {iteration}: success_rate={rollout_success_rate:.3f}")
+            
+            rollout_mean_length = np.mean(rollout_episode_lengths)
+            logger.add_scalar("train/rollout_mean_length", rollout_mean_length, global_step)
+        else:
+            print(f"Rollout {iteration}: No episodes completed in this rollout")
         # bootstrap value according to termination and truncation
         with torch.no_grad():
             next_value = agent.get_value(next_obs).reshape(1, -1)

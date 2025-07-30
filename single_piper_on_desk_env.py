@@ -322,15 +322,15 @@ class PiperEnv(gym.Env):
 
     def _check_gripper_contact_with_apple(self) -> bool:
         """Check if gripper fingers (link7, link8) are in contact with apple."""
-        contact_found = True
+        contact_found = 0
         
         for link_name in ["link7", "link8"]:
             link_contact = self._check_contact_between_bodies(link_name, "apple")
-            if not link_contact:
-                contact_found = False
+            if link_contact:
+                contact_found += 1
                 break
         
-        return contact_found
+        return contact_found == 2
 
     def _check_apple_fell_off_table(self) -> bool:
         """Check if apple fell off table."""
@@ -370,6 +370,7 @@ class PiperEnv(gym.Env):
             reward += np.exp(-2 * dis_to_rest)
             if dis_to_rest < 0.1:
                 self.goal_reached = True
+                # print("Goal reached: Gripper is grasping the apple.")
                 reward += 1.0
 
         # Table contact penalty
@@ -418,6 +419,8 @@ class PiperEnv(gym.Env):
         contact_max = self.contact_streak > self.max_contact_streak
         terminated = self.goal_reached or apple_fell or contact_max
 
+        truncated = self.step_number > self.episode_len
+
         info = {
             'is_success': self.goal_reached,
             'total_reward': reward,
@@ -425,11 +428,9 @@ class PiperEnv(gym.Env):
             'goal_reached': self.goal_reached,
             'current_qpos': current_qpos.copy(),
             'delta_action': delta_action.copy(),
-            'new_qpos': new_qpos.copy()
+            'new_qpos': new_qpos.copy(),
         }
 
-        truncated = self.step_number > self.episode_len
-        
         return observation, reward, terminated, truncated, info  # Gymnasium API
 
     def seed(self, seed=None):
