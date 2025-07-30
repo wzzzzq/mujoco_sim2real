@@ -1,0 +1,17 @@
+# Core ML/RL Libraries
+torch>=2.0.0
+numpy==1.26.4
+scipy>=1.7.0
+
+# Reinforcement Learning
+gymnasium>=0.28.0
+
+# Robotics and Physics Simulation
+mujoco>=3.0.0
+
+# Experiment Tracking and Logging
+wandb>=0.15.0
+
+# Utility Libraries
+tyro>=0.5.0
+tqdm>=4.60.0
