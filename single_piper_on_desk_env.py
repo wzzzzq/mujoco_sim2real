@@ -75,7 +75,7 @@ class PiperEnv(gym.Env):
 
         self.goal_reached = False
         self._reset_noise_scale = 0.0
-        self.episode_len = 128
+        self.episode_len = 80
         self.init_qpos = np.zeros(8)
         self.init_qpos[1] = 1.1
         self.init_qpos[2] = -0.95
@@ -419,7 +419,7 @@ class PiperEnv(gym.Env):
         contact_max = self.contact_streak > self.max_contact_streak
         terminated = self.goal_reached or apple_fell or contact_max
 
-        truncated = self.step_number > self.episode_len
+        truncated = self.step_number >= self.episode_len
 
         info = {
             'is_success': self.goal_reached,
