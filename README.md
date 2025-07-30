@@ -7,6 +7,9 @@ PPO RGB policy training for Piper robot manipulation tasks in MuJoCo simulation.
 ### Install Dependencies
 ```bash
 conda create -n mujoco_sim2real python==3.10.9
+
+conda activate mujoco_sim2real
+
 pip install -r requirements.txt
 ```
 
