@@ -120,7 +120,7 @@ class PiperEnv(gym.Env):
     def map_action_to_joint_deltas(self, action: np.ndarray) -> np.ndarray:
         """Map [-1, 1] action to joint angle increments."""
         max_delta_per_step = np.array([
-            0.08, 0.06, 0.06, 0.06, 0.06, 0.08, 0.02
+            0.045, 0.025, 0.025, 0.025, 0.025, 0.045, 0.02
         ], dtype=np.float32)
         
         # Ensure action is a numpy array with proper dtype
@@ -362,6 +362,11 @@ class PiperEnv(gym.Env):
         reaching_reward = 1 - np.tanh(5 * tcp_to_obj_dist)
         reward += reaching_reward
 
+        if tcp_to_obj_dist < 0.03:
+            reward += 5
+            self.goal_reached = True
+
+        '''
         # Stage 2: Grasping reward
         grasped = self._check_gripper_contact_with_apple() and apple_position[2] > 0.768
         if grasped:  # Check if gripper is grasping apple with sufficient force
@@ -372,6 +377,7 @@ class PiperEnv(gym.Env):
                 self.goal_reached = True
                 # print("Goal reached: Gripper is grasping the apple.")
                 reward += 1.0
+        '''
 
         # Table contact penalty
         table_contact = self._check_gripper_contact_with_table()
@@ -397,7 +403,7 @@ class PiperEnv(gym.Env):
         
         self.data.ctrl[:7] = new_qpos
         
-        for i in range(30):
+        for i in range(15):
             mujoco.mj_step(self.model, self.data)
             
             # Render if viewer is available
@@ -408,8 +414,6 @@ class PiperEnv(gym.Env):
             
             current_qpos = self.data.qpos[:7].copy()
             pos_err = np.linalg.norm(new_qpos - current_qpos)
-            if pos_err < 0.1:
-                break
 
         self.step_number += 1
         observation = self._get_observation()
