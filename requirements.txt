@@ -9,6 +9,11 @@ gymnasium == 0.28.1
 # Robotics and Physics Simulation
 mujoco>=3.0.0
 
+# Video Recording
+imageio
+imageio[ffmpeg]>=2.25.0
+imageio[pyav]>=2.25.0
+
 # Experiment Tracking and Logging
 wandb>=0.15.0
 
