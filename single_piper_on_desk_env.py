@@ -378,6 +378,11 @@ class PiperEnv(gym.Env):
                 # print("Goal reached: Gripper is grasping the apple.")
                 reward += 1.0
         '''
+        # Apple fell off table penalty
+        apple_fell = self._check_apple_fell_off_table()
+        if apple_fell:
+            reward -= 5
+            self.goal_reached = False
 
         # Table contact penalty
         table_contact = self._check_gripper_contact_with_table()
