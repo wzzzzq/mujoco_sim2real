@@ -17,11 +17,11 @@ pip install -r requirements.txt
 
 To train with rendering (single environment only):
 ```python
-python train_ppo_rgb.py \
+python -m mujoco_sim2real.train_ppo_rgb \
   --ppo.total-timesteps 10000 \
   --ppo.render-training \
   --ppo.num-envs 1 \
-  --ppo.num-eval-envs 4 \
+  --ppo.num-eval-envs 1 \
   --ppo.learning-rate 1e-4 \
   --ppo.max-grad-norm 0.5 \
   --ppo.num-minibatches 4 \
@@ -30,10 +30,10 @@ python train_ppo_rgb.py \
 
 To train without rendering (faster, multiple environments):
 ```python
-python train_ppo_rgb.py \
+python -m mujoco_sim2real.train_ppo_rgb \
 --ppo.total-timesteps 10000000 \
---ppo.num-envs 24 \
---ppo.num-eval-envs 8 \
+--ppo.num-envs 25 \
+--ppo.num-eval-envs 4 \
 --ppo.learning-rate 3e-4 \
 --ppo.num-minibatches 8 \
 --ppo.track
