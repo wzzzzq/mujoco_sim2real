@@ -44,6 +44,14 @@ runs/
 *.pt
 checkpoints/
 
+# Video files
+*.mp4
+*.avi
+*.mov
+*.mkv
+test_videos/
+videos/
+
 # OS
 .DS_Store
 Thumbs.db

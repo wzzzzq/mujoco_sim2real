@@ -9,7 +9,8 @@ python train_ppo_rgb.py \
   --ppo.learning-rate 1e-4 \
   --ppo.max-grad-norm 0.5 \
   --ppo.num-minibatches 4 \
-  --ppo.track
+  --ppo.track \
+  --ppo.resume
 
 To train without rendering (faster, multiple environments):
 python train_ppo_rgb.py \
@@ -18,6 +19,23 @@ python train_ppo_rgb.py \
 --ppo.num-eval-envs 8 \
 --ppo.learning-rate 3e-4 \
 --ppo.num-minibatches 16 \
+--ppo.track
+
+To resume training from a checkpoint:
+python train_ppo_rgb.py \
+--ppo.checkpoint runs/PiperEnv__ppo_rgb__1__1753955000/final_ckpt.pt \
+--ppo.resume \
+--ppo.total-timesteps 200000000 \
+--ppo.track
+
+To fine-tune from a checkpoint (start fresh but with pretrained weights):
+python train_ppo_rgb.py \
+--ppo.num-envs 100 \
+--ppo.num-eval-envs 8 \
+--ppo.num-minibatches 16 \
+--ppo.checkpoint runs/PiperEnv__ppo_rgb__1__1753955000/final_ckpt.pt \
+--ppo.total-timesteps 2000000 \
+--ppo.learning-rate 1e-5 \
 --ppo.track
 
 Note: For large num_envs (>50), reduce num_steps to maintain reasonable batch sizes.

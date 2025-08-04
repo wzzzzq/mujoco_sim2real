@@ -205,7 +205,7 @@ class PiperEnv(gym.Env):
     def map_action_to_joint_deltas(self, action: np.ndarray) -> np.ndarray:
         """Map [-1, 1] action to joint angle increments."""
         max_delta_per_step = np.array([
-            0.045, 0.025, 0.025, 0.025, 0.025, 0.045, 0.02
+            0.05, 0.03, 0.03, 0.03, 0.03, 0.05, 0.02
         ], dtype=np.float32)
         
         # Ensure action is a numpy array with proper dtype
@@ -474,6 +474,11 @@ class PiperEnv(gym.Env):
                 # print("Goal reached: Gripper is grasping the apple.")
                 reward += 1.0
         '''
+        # Apple fell off table penalty
+        apple_fell = self._check_apple_fell_off_table()
+        if apple_fell:
+            reward -= 5
+            self.goal_reached = False
 
         # Table contact penalty
         table_contact = self._check_gripper_contact_with_table()

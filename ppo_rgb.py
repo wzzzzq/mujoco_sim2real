@@ -45,6 +45,8 @@ class PPOArgs:
     """if toggled, only runs evaluation with the given model checkpoint and saves the evaluation trajectories"""
     checkpoint: Optional[str] = None
     """path to a pretrained checkpoint file to start evaluation/training from"""
+    resume: bool = False
+    """if toggled, resume training from checkpoint (loads model weights and continues training)"""
     render_mode: str = "all"
     """the environment rendering mode"""
     render_training: bool = False
@@ -425,7 +427,12 @@ def train(args: PPOArgs):
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     if args.checkpoint:
+        print(f"Loading checkpoint from: {args.checkpoint}")
         agent.load_state_dict(torch.load(args.checkpoint))
+        if args.resume:
+            print("✓ Resuming training from checkpoint")
+        else:
+            print("✓ Loaded model weights from checkpoint (fine-tuning mode)")
 
     cumulative_times = defaultdict(float)
 

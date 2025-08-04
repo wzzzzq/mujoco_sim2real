@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """
-Test script to load and run a trained PPO policy with rendering.
+Test script to load and run a trained PPO policy with rendering and video recording.
 
 Usage:
     python test_policy.py --checkpoint runs/PiperEnv__ppo_rgb__1__<timestamp>/final_ckpt.pt
     python test_policy.py --checkpoint runs/PiperEnv__ppo_rgb__1__<timestamp>/ckpt_100.pt --episodes 5
     python test_policy.py --checkpoint runs/PiperEnv__ppo_rgb__1__<timestamp>/final_ckpt.pt --deterministic
+    
+    # Save video of the test process:
+    python test_policy.py --save-video
+    python test_policy.py --save-video --video-path my_test_video.mp4 --episodes 5
+    python test_policy.py --save-video --no-render  # Record video without showing GUI
 """
 
 import argparse
@@ -15,14 +20,22 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.distributions.normal import Normal
+from datetime import datetime
+
+try:
+    import imageio
+    IMAGEIO_AVAILABLE = True
+except ImportError:
+    IMAGEIO_AVAILABLE = False
 
 from single_piper_on_desk_env import PiperEnv
 
 
-def test_policy(checkpoint_path, num_episodes=3, deterministic=True, max_steps=128, render=True):
+def test_policy(checkpoint_path, num_episodes=3, deterministic=True, max_steps=128, render=True, save_video=False, video_path=None):
     """
     Test a trained policy by loading the checkpoint and running episodes.
     Handles RGB + state observation format used in training.
+    Optionally saves video of the test process.
     """
     
     # Check if checkpoint exists
@@ -33,6 +46,8 @@ def test_policy(checkpoint_path, num_episodes=3, deterministic=True, max_steps=1
     print(f"Loading checkpoint from: {checkpoint_path}")
     print(f"Running {num_episodes} episodes with {'deterministic' if deterministic else 'stochastic'} policy")
     print(f"Rendering: {'enabled' if render else 'disabled'}")
+    if save_video:
+        print(f"Video recording: enabled, saving to {video_path}")
     print("-" * 60)
     
     # Setup device
@@ -41,6 +56,28 @@ def test_policy(checkpoint_path, num_episodes=3, deterministic=True, max_steps=1
     
     # Create environment with rendering if requested
     env = PiperEnv(render_mode="human" if render else None)
+    
+    # Setup video recording if requested
+    video_frames = []  # For imageio
+    if save_video:
+        try:
+            # Get RGB observation to determine video dimensions
+            temp_obs, _ = env.reset()
+            rgb_shape = temp_obs['rgb'].shape
+            height, width = rgb_shape[0], rgb_shape[1]
+            
+            if IMAGEIO_AVAILABLE:
+                # Use imageio for video recording
+                print(f"✓ Video recording initialized (imageio): {width}x{height}")
+            else:
+                print("Warning: imageio not available. Disabling video recording.")
+                save_video = False
+            
+            # Reset environment again for actual testing
+            env.reset()
+        except Exception as e:
+            print(f"Warning: Could not initialize video recording: {e}")
+            save_video = False
     
     # Load checkpoint
     try:
@@ -109,6 +146,12 @@ def test_policy(checkpoint_path, num_episodes=3, deterministic=True, max_steps=1
             # Take step in environment
             next_obs, reward, terminated, truncated, info = env.step(action)
             
+            # Record frame for video if enabled
+            if save_video and IMAGEIO_AVAILABLE:
+                rgb_frame = next_obs['rgb']
+                # Store frames for imageio
+                video_frames.append(rgb_frame)
+            
             episode_reward += reward
             episode_length += 1
             
@@ -145,6 +188,15 @@ def test_policy(checkpoint_path, num_episodes=3, deterministic=True, max_steps=1
     print(f"Average episode length: {np.mean(episode_lengths):.1f} ± {np.std(episode_lengths):.1f}")
     print(f"Min/Max reward: {np.min(episode_rewards):.3f} / {np.max(episode_rewards):.3f}")
     print(f"Success rate: {success_count}/{num_episodes} ({100*success_count/num_episodes:.1f}%)")
+    
+    # Clean up video recording
+    if save_video and IMAGEIO_AVAILABLE and video_frames:
+        try:
+            # Save video using imageio
+            imageio.mimsave(video_path, video_frames, fps=30)
+            print(f"\n✓ Video saved to: {video_path}")
+        except Exception as e:
+            print(f"\nError saving video: {e}")
     
     env.close()
     print("\nDone!")
@@ -194,6 +246,10 @@ def main():
                         help="Maximum steps per episode")
     parser.add_argument("--no-render", action="store_true",
                         help="Disable rendering")
+    parser.add_argument("--save-video", action="store_true",
+                        help="Save video of the test process")
+    parser.add_argument("--video-path", type=str, default=None,
+                        help="Path to save video (auto-generated if not provided)")
     
     args = parser.parse_args()
     
@@ -208,13 +264,24 @@ def main():
             return
         print(f"Found latest checkpoint: {checkpoint_path}")
     
+    # Generate video path if not provided but video saving is requested
+    video_path = args.video_path
+    if args.save_video and video_path is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        checkpoint_name = os.path.basename(checkpoint_path).replace('.pt', '')
+        video_dir = "test_videos"
+        os.makedirs(video_dir, exist_ok=True)
+        video_path = os.path.join(video_dir, f"test_{checkpoint_name}_{timestamp}.mp4")
+    
     # Test the policy
     test_policy(
         checkpoint_path=checkpoint_path,
         num_episodes=args.episodes,
         deterministic=args.deterministic,
         max_steps=args.max_steps,
-        render=not args.no_render
+        render=not args.no_render,
+        save_video=args.save_video,
+        video_path=video_path
     )
 
 
