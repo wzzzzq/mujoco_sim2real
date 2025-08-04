@@ -463,7 +463,7 @@ def train(args: PPOArgs):
                     
                     # Debug: Check for episode terminations
                     #if step_i < 5 or step_i % 5 == 0:  # Print first few steps and every 20th step
-                    print(f"  Eval step {step_i}: terminations={eval_terminations.sum()}, truncations={eval_truncations.sum()}")
+                    # print(f"  Eval step {step_i}: terminations={eval_terminations.sum()}, truncations={eval_truncations.sum()}")
                     
                     # Handle episode completion with RecordEpisodeStatistics wrapper
                     if "final_info" in eval_infos:

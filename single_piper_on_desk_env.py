@@ -10,6 +10,8 @@ from gymnasium import spaces
 import os
 from scipy.spatial.transform import Rotation as R
 import time
+from mujoco_sim2real.viewer.gs_render.gaussian_renderer import GSRenderer
+import torch
 
 
 class PiperEnv(gym.Env):
@@ -95,6 +97,38 @@ class PiperEnv(gym.Env):
                 print(f"Warning: Could not initialize renderer: {e}")
                 self._renderer = None
 
+
+        # Initialize GSRenderer for Gaussian rendering
+        ### 创建 gs 渲染
+        self.rgb_fovy = 65
+        self.rgb_fovx = 90
+        self.rgb_width = 128
+        self.rgb_height = 128
+        self.gs_model_dict = {}
+        # 当前脚本文件所在目录（通常是项目内部）
+        self.script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # 构造 model_assets 的路径
+        self.asset_root = os.path.join(self.script_dir, "model_assets", "3dgs_asserts")
+
+        # 构造 gs_model_dict 的路径
+        self.gs_model_dict["background"] = os.path.join(self.asset_root, "scene", "1lou_0527_res.ply")
+        self.gs_model_dict["link1"] = os.path.join(self.asset_root, "robot", "piper", "arm_link1_rot.ply")
+        self.gs_model_dict["link2"] = os.path.join(self.asset_root, "robot", "piper", "arm_link2_rot.ply")
+        self.gs_model_dict["link3"] = os.path.join(self.asset_root, "robot", "piper", "arm_link3_rot.ply")
+        self.gs_model_dict["link4"] = os.path.join(self.asset_root, "robot", "piper", "arm_link4_rot.ply")
+        self.gs_model_dict["link5"] = os.path.join(self.asset_root, "robot", "piper", "arm_link5_rot.ply")
+        self.gs_model_dict["link6"] = os.path.join(self.asset_root, "robot", "piper", "arm_link6_rot.ply")
+        self.gs_model_dict["link7"] = os.path.join(self.asset_root, "robot", "piper", "arm_link7_rot.ply")
+        self.gs_model_dict["link8"] = os.path.join(self.asset_root, "robot", "piper", "arm_link8_rot.ply")
+        self.gs_model_dict["desk"] = os.path.join(self.asset_root, "object", "desk", "1louzhuozi.ply")
+        self.gs_model_dict["apple"] = os.path.join(self.asset_root, "object", "apple", "apple_res.ply")
+        self.robot_link_list = ["link1", "link2", "link3", "link4", "link5", "link6", "link7", "link8"]
+        self.item_list = ["apple", "desk"]
+        
+        self.gs_renderer = GSRenderer(self.gs_model_dict, self.rgb_width, self.rgb_height)
+        self.gs_renderer.set_camera_fovy(self.rgb_fovy * np.pi / 180.)
+
     def _get_site_pos_ori(self, site_name: str) -> tuple[np.ndarray, np.ndarray]:
         site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, site_name)
         if site_id == -1:
@@ -107,6 +141,63 @@ class PiperEnv(gym.Env):
 
         return position, quaternion.astype(np.float32)  # Convert back to float32
     
+    def update_gs_scene(self):
+        for name in self.robot_link_list:
+            trans, quat_wxyz = self._get_body_pose(name)
+            self.gs_renderer.set_obj_pose(name, trans, quat_wxyz)
+
+        for name in self.item_list:
+            trans, quat_wxyz = self._get_body_pose(name)
+            self.gs_renderer.set_obj_pose(name, trans, quat_wxyz)
+
+        
+        
+
+        def multiple_quaternion_vector3d(qwxyz, vxyz):
+            qw = qwxyz[..., 0]
+            qx = qwxyz[..., 1]
+            qy = qwxyz[..., 2]
+            qz = qwxyz[..., 3]
+            vx = vxyz[..., 0]
+            vy = vxyz[..., 1]
+            vz = vxyz[..., 2]
+            qvw = -vx*qx - vy*qy - vz*qz
+            qvx =  vx*qw - vy*qz + vz*qy
+            qvy =  vx*qz + vy*qw - vz*qx
+            qvz = -vx*qy + vy*qx + vz*qw
+            vx_ =  qvx*qw - qvw*qx + qvz*qy - qvy*qz
+            vy_ =  qvy*qw - qvz*qx - qvw*qy + qvx*qz
+            vz_ =  qvz*qw + qvy*qx - qvx*qy - qvw*qz
+            return torch.stack([vx_, vy_, vz_], dim=-1).cuda().requires_grad_(False)
+        
+        def multiple_quaternions(qwxyz1, qwxyz2):
+            q1w = qwxyz1[..., 0]
+            q1x = qwxyz1[..., 1]
+            q1y = qwxyz1[..., 2]
+            q1z = qwxyz1[..., 3]
+
+            q2w = qwxyz2[..., 0]
+            q2x = qwxyz2[..., 1]
+            q2y = qwxyz2[..., 2]
+            q2z = qwxyz2[..., 3]
+
+            qw_ = q1w * q2w - q1x * q2x - q1y * q2y - q1z * q2z
+            qx_ = q1w * q2x + q1x * q2w + q1y * q2z - q1z * q2y
+            qy_ = q1w * q2y - q1x * q2z + q1y * q2w + q1z * q2x
+            qz_ = q1w * q2z + q1x * q2y - q1y * q2x + q1z * q2w
+
+            return torch.stack([qw_, qx_, qy_, qz_], dim=-1).cuda().requires_grad_(False)
+
+        if self.gs_renderer.update_gauss_data:
+            self.gs_renderer.update_gauss_data = False
+            self.gs_renderer.renderer.need_rerender = True
+            self.gs_renderer.renderer.gaussians.xyz[self.gs_renderer.renderer.gau_env_idx:] = multiple_quaternion_vector3d(self.gs_renderer.renderer.gau_rot_all_cu[self.gs_renderer.renderer.gau_env_idx:], self.gs_renderer.renderer.gau_ori_xyz_all_cu[self.gs_renderer.renderer.gau_env_idx:]) + self.gs_renderer.renderer.gau_xyz_all_cu[self.gs_renderer.renderer.gau_env_idx:]
+            self.gs_renderer.renderer.gaussians.rot[self.gs_renderer.renderer.gau_env_idx:] = multiple_quaternions(self.gs_renderer.renderer.gau_rot_all_cu[self.gs_renderer.renderer.gau_env_idx:], self.gs_renderer.renderer.gau_ori_rot_all_cu[self.gs_renderer.renderer.gau_env_idx:])
+
+
+
+
+
     def _get_body_pose(self, body_name: str) -> tuple[np.ndarray, np.ndarray]:
         body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, body_name)
         if body_id == -1:
@@ -266,11 +357,22 @@ class PiperEnv(gym.Env):
 
     def _get_observation(self):
         """Get mixed observation: RGB camera + state."""
-        rgb_obs = self._get_rgb_observation()
+        # rgb_obs = self._get_rgb_observation()
         state_obs = self._get_state_observation()
+
+        gs_obs = self.get_img()
+
+        # RGB -> BGR
+        bgr_img = cv2.cvtColor(gs_obs, cv2.COLOR_RGB2BGR)
+
+        # 显示图像
+        cv2.imshow("Gaussian Renderer Output", bgr_img)
+        cv2.waitKey(1)
+
+        
         
         return {
-            'rgb': rgb_obs,
+            'rgb': gs_obs,
             'state': state_obs
         }
 
@@ -426,6 +528,8 @@ class PiperEnv(gym.Env):
             current_qpos = self.data.qpos[:7].copy()
             pos_err = np.linalg.norm(new_qpos - current_qpos)
 
+        self.update_gs_scene()
+
         self.step_number += 1
         observation = self._get_observation()
         reward = self._compute_reward()
@@ -448,6 +552,34 @@ class PiperEnv(gym.Env):
 
         return observation, reward, terminated, truncated, info  # Gymnasium API
 
+    def get_img(self):
+        camera_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_CAMERA, self.camera_name)
+        if camera_id == -1:
+            raise ValueError(f"Camera '{self.camera_name}' not found")
+        # print(f"Camera ID: {cam_id}, Name: {cam_name}")
+        cam_pos = self.data.cam_xpos[camera_id]
+        cam_rot = self.data.cam_xmat[camera_id].reshape((3, 3))
+        cam_quat = R.from_matrix(cam_rot).as_quat()
+
+        # 设置gs相机参数，渲染图像
+        self.gs_renderer.set_camera_fovy(self.rgb_fovy * np.pi / 180.)
+        self.gs_renderer.set_camera_pose(cam_pos, cam_quat)
+        with torch.inference_mode():
+            rgb_img = self.gs_renderer.render()
+
+
+        if isinstance(rgb_img, torch.Tensor):
+            rgb_img = rgb_img.detach().cpu().numpy()
+
+        # 如果是 [3, H, W] 格式，转成 [H, W, 3]
+        if rgb_img.shape[0] == 3 and len(rgb_img.shape) == 3:
+            rgb_img = np.transpose(rgb_img, (1, 2, 0))
+
+        # 确保值在 [0,1] 范围，并转换为 uint8
+        rgb_img = np.clip(rgb_img, 0, 1)
+        rgb_img = (rgb_img * 255).astype(np.uint8)
+        return rgb_img
+
     def seed(self, seed=None):
         self.np_random = np.random.default_rng(seed)
         return [seed]
@@ -469,6 +601,11 @@ def make_env():
     return PiperEnv(render_mode=None)
 
 
+
+
+
+import cv2
+import numpy as np
 if __name__ == "__main__":
     # Simple test
     env = PiperEnv(render_mode="human")
@@ -478,11 +615,11 @@ if __name__ == "__main__":
     print(f"RGB shape: {obs['rgb'].shape}")
     print(f"State shape: {obs['state'].shape}")
     print(f"Action space: {env.action_space}")
+    import time
     
     for i in range(100):
         action = env.action_space.sample()
         obs, reward, terminated, truncated, info = env.step(action)
-        print(f"Step {i}: reward={reward:.3f}, terminated={terminated}, truncated={truncated}")
+        print(f"Step {i}: reward={reward:.3f}, terminated={terminated}, truncated={truncated}") 
         if terminated or truncated:
             obs, info = env.reset()
-        # time.sleep(0.1)
