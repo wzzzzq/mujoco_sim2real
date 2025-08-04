@@ -363,21 +363,27 @@ class PiperEnv(gym.Env):
         reward += reaching_reward
 
         if tcp_to_obj_dist < 0.03:
-            reward += 5
-            self.goal_reached = True
+            reward += 2
+            #self.goal_reached = True
 
-        '''
-        # Stage 2: Grasping reward
-        grasped = self._check_gripper_contact_with_apple() and apple_position[2] > 0.768
-        if grasped:  # Check if gripper is grasping apple with sufficient force
-            # print("Gripper is grasping the apple.")
-            dis_to_rest = np.linalg.norm(self.data.qpos[:6] - self.init_qpos[:6])
-            reward += np.exp(-2 * dis_to_rest)
-            if dis_to_rest < 0.1:
+            # Stage 2: Grasping reward
+            if self._check_gripper_contact_with_apple():
+                print("Gripper is grasping the apple.")
+                reward += 5
                 self.goal_reached = True
-                # print("Goal reached: Gripper is grasping the apple.")
-                reward += 1.0
-        '''
+
+                '''
+                # Stage 3: Apple position reward
+                if apple_position[2] > 0.768:
+                    reward += 0.5
+                    dis_to_rest = np.linalg.norm(self.data.qpos[:6] - self.init_qpos[:6])
+                    reward += np.exp(-2 * dis_to_rest)
+                    if dis_to_rest < 0.2:
+                        reward += 5.0
+                        self.goal_reached = True
+                    # print("Goal reached: Gripper is grasping the apple.")
+                '''
+        
         # Apple fell off table penalty
         apple_fell = self._check_apple_fell_off_table()
         if apple_fell:

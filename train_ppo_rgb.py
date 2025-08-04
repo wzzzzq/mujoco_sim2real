@@ -33,7 +33,7 @@ python train_ppo_rgb.py \
 --ppo.num-envs 100 \
 --ppo.num-eval-envs 8 \
 --ppo.num-minibatches 16 \
---ppo.checkpoint runs/PiperEnv__ppo_rgb__1__1753955000/final_ckpt.pt \
+--ppo.checkpoint runs/PiperEnv__ppo_rgb__1__1754212457/ckpt_226.pt \
 --ppo.total-timesteps 2000000 \
 --ppo.learning-rate 1e-5 \
 --ppo.track
