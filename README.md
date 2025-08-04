@@ -11,6 +11,23 @@ conda create -n mujoco_sim2real python==3.10.9
 conda activate mujoco_sim2real
 
 pip install -r requirements.txt
+
+
+pip install open3d
+pip install plyfile
+pip install opencv-python
+pip install einops e3nn rpyc
+pip install cmake ninja pybind11 scikit-image imageio iopath
+
+# install pytorch 3d from source
+cd submodules/
+git clone git@github.com:facebookresearch/pytorch3d.git
+cd pytorch3d
+pip install -e .
+# install diff-plane-guassian
+cd ..
+cd diff-plane-rasterization/
+pip install -e .
 ```
 
 ### Train Policy

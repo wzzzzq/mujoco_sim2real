@@ -105,18 +105,24 @@ class PiperEnv(gym.Env):
         self.rgb_width = 128
         self.rgb_height = 128
         self.gs_model_dict = {}
-        self.gs_model_dict["background"] = "/home/cfy/cfy/gs_hs/model_asserts/3dgs_asserts/scene/1lou_0527_res.ply"
-        self.gs_model_dict["link1"] = "/home/cfy/cfy/gs_hs/model_asserts/3dgs_asserts/robot/piper/arm_link1_rot.ply"
-        self.gs_model_dict["link2"] = "/home/cfy/cfy/gs_hs/model_asserts/3dgs_asserts/robot/piper/arm_link2_rot.ply"
-        self.gs_model_dict["link3"] = "/home/cfy/cfy/gs_hs/model_asserts/3dgs_asserts/robot/piper/arm_link3_rot.ply"
-        self.gs_model_dict["link4"] = "/home/cfy/cfy/gs_hs/model_asserts/3dgs_asserts/robot/piper/arm_link4_rot.ply"
-        self.gs_model_dict["link5"] = "/home/cfy/cfy/gs_hs/model_asserts/3dgs_asserts/robot/piper/arm_link5_rot.ply"
-        self.gs_model_dict["link6"] = "/home/cfy/cfy/gs_hs/model_asserts/3dgs_asserts/robot/piper/arm_link6_rot.ply"
-        self.gs_model_dict["link7"] = "/home/cfy/cfy/gs_hs/model_asserts/3dgs_asserts/robot/piper/arm_link7_rot.ply"
-        self.gs_model_dict["link8"] = "/home/cfy/cfy/gs_hs/model_asserts/3dgs_asserts/robot/piper/arm_link8_rot.ply"
+        # 当前脚本文件所在目录（通常是项目内部）
+        self.script_dir = os.path.dirname(os.path.abspath(__file__))
 
-        self.gs_model_dict["desk"] = "/home/cfy/cfy/gs_hs/model_asserts/3dgs_asserts/object/desk/1louzhuozi.ply"
-        self.gs_model_dict["apple"] = "/home/cfy/cfy/gs_hs/model_asserts/3dgs_asserts/object/apple/apple_res.ply"
+        # 构造 model_assets 的路径
+        self.asset_root = os.path.join(self.script_dir, "model_assets", "3dgs_asserts")
+
+        # 构造 gs_model_dict 的路径
+        self.gs_model_dict["background"] = os.path.join(self.asset_root, "scene", "1lou_0527_res.ply")
+        self.gs_model_dict["link1"] = os.path.join(self.asset_root, "robot", "piper", "arm_link1_rot.ply")
+        self.gs_model_dict["link2"] = os.path.join(self.asset_root, "robot", "piper", "arm_link2_rot.ply")
+        self.gs_model_dict["link3"] = os.path.join(self.asset_root, "robot", "piper", "arm_link3_rot.ply")
+        self.gs_model_dict["link4"] = os.path.join(self.asset_root, "robot", "piper", "arm_link4_rot.ply")
+        self.gs_model_dict["link5"] = os.path.join(self.asset_root, "robot", "piper", "arm_link5_rot.ply")
+        self.gs_model_dict["link6"] = os.path.join(self.asset_root, "robot", "piper", "arm_link6_rot.ply")
+        self.gs_model_dict["link7"] = os.path.join(self.asset_root, "robot", "piper", "arm_link7_rot.ply")
+        self.gs_model_dict["link8"] = os.path.join(self.asset_root, "robot", "piper", "arm_link8_rot.ply")
+        self.gs_model_dict["desk"] = os.path.join(self.asset_root, "object", "desk", "1louzhuozi.ply")
+        self.gs_model_dict["apple"] = os.path.join(self.asset_root, "object", "apple", "apple_res.ply")
         self.robot_link_list = ["link1", "link2", "link3", "link4", "link5", "link6", "link7", "link8"]
         self.item_list = ["apple", "desk"]
         
