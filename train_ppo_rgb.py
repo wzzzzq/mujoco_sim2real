@@ -23,19 +23,19 @@ python train_ppo_rgb.py \
 
 To resume training from a checkpoint:
 python train_ppo_rgb.py \
---ppo.checkpoint runs/PiperEnv__ppo_rgb__1__1753955000/final_ckpt.pt \
+--ppo.checkpoint runs/ckpt/mad.pt \
 --ppo.resume \
 --ppo.total-timesteps 200000000 \
 --ppo.track
 
 To fine-tune from a checkpoint (start fresh but with pretrained weights):
 python train_ppo_rgb.py \
---ppo.num-envs 100 \
+--ppo.num-envs 150 \
 --ppo.num-eval-envs 8 \
 --ppo.num-minibatches 16 \
---ppo.checkpoint runs/PiperEnv__ppo_rgb__1__1754212457/ckpt_226.pt \
---ppo.total-timesteps 2000000 \
---ppo.learning-rate 1e-5 \
+--ppo.checkpoint ckpt/mad.pt \
+--ppo.total-timesteps 8000000 \
+--ppo.learning-rate 1e-4 \
 --ppo.track
 
 Note: For large num_envs (>50), reduce num_steps to maintain reasonable batch sizes.

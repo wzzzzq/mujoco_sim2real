@@ -120,7 +120,7 @@ class PiperEnv(gym.Env):
     def map_action_to_joint_deltas(self, action: np.ndarray) -> np.ndarray:
         """Map [-1, 1] action to joint angle increments."""
         max_delta_per_step = np.array([
-            0.05, 0.03, 0.03, 0.03, 0.03, 0.05, 0.02
+            0.05, 0.03, 0.03, 0.03, 0.03, 0.05, 0.005
         ], dtype=np.float32)
         
         # Ensure action is a numpy array with proper dtype
@@ -325,10 +325,9 @@ class PiperEnv(gym.Env):
         contact_found = 0
         
         for link_name in ["link7", "link8"]:
-            link_contact = self._check_contact_between_bodies(link_name, "apple")
+            link_contact, _ = self._check_contact_between_bodies(link_name, "apple")
             if link_contact:
                 contact_found += 1
-                break
         
         return contact_found == 2
 
@@ -362,27 +361,44 @@ class PiperEnv(gym.Env):
         reaching_reward = 1 - np.tanh(5 * tcp_to_obj_dist)
         reward += reaching_reward
 
-        if tcp_to_obj_dist < 0.03:
-            reward += 2
-            #self.goal_reached = True
-
+        if tcp_to_obj_dist < 0.045:
+            reward += 1
+            
+            # Stage 1.5: Gripper closing reward when near apple
+            # Gripper joint is at index 6, with range [0, 0.035] where 0 is fully closed
+            gripper_pos = self.data.qpos[6]  # Current gripper position
+            gripper_closure = 1.0 - (gripper_pos / 0.035)  # Normalize to [0, 1] where 1 is fully closed
+            gripper_closure = np.clip(gripper_closure, 0, 1)  # Ensure it's in valid range
+            gripper_closing_reward = gripper_closure * 0.5  # Scale the reward
+            reward += gripper_closing_reward
+            
             # Stage 2: Grasping reward
             if self._check_gripper_contact_with_apple():
                 print("Gripper is grasping the apple.")
-                reward += 5
-                self.goal_reached = True
+                reward += 1
 
-                '''
-                # Stage 3: Apple position reward
-                if apple_position[2] > 0.768:
-                    reward += 0.5
-                    dis_to_rest = np.linalg.norm(self.data.qpos[:6] - self.init_qpos[:6])
-                    reward += np.exp(-2 * dis_to_rest)
-                    if dis_to_rest < 0.2:
-                        reward += 5.0
+                # === Stage 3: Lifting Reward ===
+                # This logic only runs IF the gripper is holding the apple.
+                
+                # 1. The Dense Lifting Reward
+                TABLE_HEIGHT = 0.768
+                TARGET_LIFT_HEIGHT = TABLE_HEIGHT + 0.1
+                current_height = apple_position[2]
+                
+                # Only give lifting reward if apple is actually being lifted above table
+                if current_height > TABLE_HEIGHT:
+                    # Calculate how high the apple is relative to its start and goal positions.
+                    lift_progress = (current_height - TABLE_HEIGHT) / (TARGET_LIFT_HEIGHT - TABLE_HEIGHT)
+                    # Clip progress between 0 and 1 to prevent runaway rewards
+                    lift_progress = np.clip(lift_progress, 0, 1)
+                    reward += lift_progress
+
+                    # 2. The Success Bonus
+                    if current_height >= TARGET_LIFT_HEIGHT:
+                        print("Lift goal reached!")
+                        reward += 10
                         self.goal_reached = True
-                    # print("Goal reached: Gripper is grasping the apple.")
-                '''
+
         
         # Apple fell off table penalty
         apple_fell = self._check_apple_fell_off_table()
@@ -393,14 +409,14 @@ class PiperEnv(gym.Env):
         # Table contact penalty
         table_contact = self._check_gripper_contact_with_table()
         if table_contact:
-            # print("Gripper is in contact with the table.")
+            print("Gripper is in contact with the table.")
             self.contact_streak += 1
-            reward -= 0.5
+            reward -= 5.0
             
             # Large penalty for persistent table contact
             if self.contact_streak > self.max_contact_streak:
                 # print("Persistent table contact detected.")
-                reward -= 5.0
+                reward -= 10.0
         else:
             self.contact_streak = 0
 
@@ -479,7 +495,7 @@ if __name__ == "__main__":
     print(f"State shape: {obs['state'].shape}")
     print(f"Action space: {env.action_space}")
     
-    for i in range(100):
+    for i in range(1000):
         action = env.action_space.sample()
         obs, reward, terminated, truncated, info = env.step(action)
         print(f"Step {i}: reward={reward:.3f}, terminated={terminated}, truncated={truncated}")
