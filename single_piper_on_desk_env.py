@@ -25,7 +25,7 @@ class PiperEnv(gym.Env):
     def __init__(self, render_mode=None):
         super(PiperEnv, self).__init__()
         script_dir = os.path.dirname(os.path.realpath(__file__)) 
-        xml_path = os.path.join(script_dir, 'model_assets', 'piper_on_desk', 'scene.xml')
+        xml_path = os.path.join(script_dir, 'model_assets', 'mobile_ai_robot', 'scene.xml')
 
         self.model = mujoco.MjModel.from_xml_path(xml_path)
         self.data = mujoco.MjData(self.model)
