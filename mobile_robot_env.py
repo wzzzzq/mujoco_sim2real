@@ -1,0 +1,737 @@
+"""
+Clean MuJoCo environment for Piper robot arm apple grasping task.
+This environment uses only state observations (joint angles + end effector pose + apple position).
+"""
+import numpy as np
+import mujoco
+import mujoco.viewer
+import gymnasium as gym
+from gymnasium import spaces
+import os
+from scipy.spatial.transform import Rotation as R
+import time
+from mujoco_sim2real.viewer.gs_render.gaussian_renderer import GSRenderer
+import torch
+
+
+class PiperEnv(gym.Env):
+    """
+    Piper robot arm environment for apple grasping task using delta (incremental) actions.
+    
+    The neural network outputs delta joint angles [δq1, δq2, δq3, δq4, δq5, δq6, δq7] 
+    representing incremental changes to joint positions rather than absolute positions.
+    This approach provides smoother control and better learning stability.
+    """
+    def __init__(self, render_mode=None, gs_render=True):
+        super(PiperEnv, self).__init__()
+        script_dir = os.path.dirname(os.path.realpath(__file__)) 
+        xml_path = os.path.join(script_dir, 'model_assets', 'mobile_ai_robot', 'scene.xml')
+
+        self.model = mujoco.MjModel.from_xml_path(xml_path)
+        self.data = mujoco.MjData(self.model)
+
+        # Support both old and new render API
+        if render_mode is None:
+            self.render_mode = False  # No rendering by default
+        else:
+            self.render_mode = render_mode in ["human", "rgb_array"]
+        
+        if self.render_mode:
+            self.handle = mujoco.viewer.launch_passive(self.model, self.data)  # 创建一个被动渲染窗口(GUI)，可以实时查看仿真过程
+            self.handle.cam.distance = 3  # 相机与目标的距离为 3
+            self.handle.cam.azimuth = 100  # 方位角为 0 度
+            self.handle.cam.elevation = -60 
+        else:
+            self.handle = None
+
+        # Joint limits for 7 DOF left arm (6 joints + gripper)
+        self.joint_limits = np.array([
+            (-2.618, 2.618),    # left_joint1
+            (0, 3.14),          # left_joint2 
+            (-2.697, 0),        # left_joint3
+            (-1.832, 1.832),    # left_joint4
+            (-1.22, 1.22),      # left_joint5
+            (-3.14, 3.14),      # left_joint6
+            (0, 0.035),         # left_gripper
+        ])
+
+        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(7,))  # 7 DOF left arm
+        
+        self.camera_width = 128
+        self.camera_height = 128
+
+        # Mixed observation space: dict with 'rgb' (camera) and 'state' (proprioceptive)
+        self.observation_space = spaces.Dict({
+            'rgb': spaces.Box(low=0, high=255, shape=(self.camera_height, self.camera_width, 3), dtype=np.uint8),
+            # 'wrist_rgb': spaces.Box(low=0, high=255, shape=(self.camera_height, self.camera_width, 3), dtype=np.uint8),
+            'state': spaces.Box(low=-np.inf, high=np.inf, shape=(7,), dtype=np.float32)
+        })
+
+        self.goal_reached = False
+        self._reset_noise_scale = 0.0
+        self.episode_len = 80
+        
+        # Initialize joint positions for the left arm (7 joints: 6 arm + 1 gripper)
+        self.init_qpos = np.zeros(7)  # Only left arm joints
+        self.init_qpos[0] = 0.0      # left_joint1
+        self.init_qpos[1] = 1.1      # left_joint2
+        self.init_qpos[2] = -0.95    # left_joint3
+        self.init_qpos[3] = 0.0      # left_joint4
+        self.init_qpos[4] = 0.976    # left_joint5
+        self.init_qpos[5] = 0.0      # left_joint6
+        self.init_qpos[6] = 0.035    # left_gripper
+        self.init_qvel = np.zeros(7)
+        self.contact_streak = 0
+        self.max_contact_streak = 30
+        
+        # Initialize persistent renderer for efficiency
+        self._renderer = None
+        if self.render_mode is None:  # Only create for RGB observations
+            try:
+                self._renderer = mujoco.Renderer(self.model, height=self.camera_height, width=self.camera_width)
+            except Exception as e:
+                print(f"Warning: Could not initialize renderer: {e}")
+                self._renderer = None
+
+        self.gs_render = gs_render
+
+        # Initialize GSRenderer for Gaussian rendering
+        if self.gs_render:
+            ### 创建 gs 渲染
+            self.rgb_fovy = 65
+            self.rgb_fovx = 90
+            self.rgb_width = 128
+            self.rgb_height = 128
+            self.gs_model_dict = {}
+            self.script_dir = os.path.dirname(os.path.abspath(__file__))
+
+            # 构造 model_assets 的路径
+            self.asset_root = os.path.join(self.script_dir, "model_assets", "3dgs_asserts")
+
+            # 构造 gs_model_dict 的路径
+            self.gs_model_dict["background"] = os.path.join(self.asset_root, "scene", "1lou_0527_res.ply")
+            
+            self.gs_model_dict["mobile_ai"] = os.path.join(self.asset_root, "robot", "chassis", "1.ply")
+            
+            # Left arm components (Piper arm links)
+            self.gs_model_dict["left_base_link"] = os.path.join(self.asset_root, "robot", "piper", "arm_link1_rot.ply")
+            self.gs_model_dict["left_link1"] = os.path.join(self.asset_root, "robot", "piper", "arm_link1_rot.ply")
+            self.gs_model_dict["left_link2"] = os.path.join(self.asset_root, "robot", "piper", "arm_link2_rot.ply")
+            self.gs_model_dict["left_link3"] = os.path.join(self.asset_root, "robot", "piper", "arm_link3_rot.ply")
+            self.gs_model_dict["left_link4"] = os.path.join(self.asset_root, "robot", "piper", "arm_link4_rot.ply")
+            self.gs_model_dict["left_link5"] = os.path.join(self.asset_root, "robot", "piper", "arm_link5_rot.ply")
+            self.gs_model_dict["left_link6"] = os.path.join(self.asset_root, "robot", "piper", "arm_link6_rot.ply")
+            self.gs_model_dict["left_link7"] = os.path.join(self.asset_root, "robot", "piper", "arm_link7_rot.ply")
+            self.gs_model_dict["left_link8"] = os.path.join(self.asset_root, "robot", "piper", "arm_link8_rot.ply")
+            
+            # Right arm components (Piper arm links) 
+            self.gs_model_dict["right_base_link"] = os.path.join(self.asset_root, "robot", "piper", "arm_link1_rot.ply")
+            self.gs_model_dict["right_link1"] = os.path.join(self.asset_root, "robot", "piper", "arm_link1_rot.ply")
+            self.gs_model_dict["right_link2"] = os.path.join(self.asset_root, "robot", "piper", "arm_link2_rot.ply")
+            self.gs_model_dict["right_link3"] = os.path.join(self.asset_root, "robot", "piper", "arm_link3_rot.ply")
+            self.gs_model_dict["right_link4"] = os.path.join(self.asset_root, "robot", "piper", "arm_link4_rot.ply")
+            self.gs_model_dict["right_link5"] = os.path.join(self.asset_root, "robot", "piper", "arm_link5_rot.ply")
+            self.gs_model_dict["right_link6"] = os.path.join(self.asset_root, "robot", "piper", "arm_link6_rot.ply")
+            self.gs_model_dict["right_link7"] = os.path.join(self.asset_root, "robot", "piper", "arm_link7_rot.ply")
+            self.gs_model_dict["right_link8"] = os.path.join(self.asset_root, "robot", "piper", "arm_link8_rot.ply")
+            
+            # Objects and environment
+            self.gs_model_dict["desk"] = os.path.join(self.asset_root, "object", "desk", "1louzhuozi.ply")
+            self.gs_model_dict["apple"] = os.path.join(self.asset_root, "object", "apple", "apple_res.ply")
+            
+            # Update robot link lists to include full mobile robot
+            self.mobile_base_list = ["mobile_ai"]
+            self.left_arm_list = ["left_base_link", "left_link1", "left_link2", "left_link3", "left_link4", "left_link5", "left_link6", "left_link7", "left_link8"]
+            self.right_arm_list = ["right_base_link", "right_link1", "right_link2", "right_link3", "right_link4", "right_link5", "right_link6", "right_link7", "right_link8"]
+            self.robot_link_list = self.mobile_base_list + self.left_arm_list + self.right_arm_list
+            self.item_list = ["apple", "desk"]
+            
+            self.gs_renderer = GSRenderer(self.gs_model_dict, self.rgb_width, self.rgb_height)
+            self.gs_renderer.set_camera_fovy(self.rgb_fovy * np.pi / 180.)
+
+    def _get_site_pos_ori(self, site_name: str) -> tuple[np.ndarray, np.ndarray]:
+        site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, site_name)
+        if site_id == -1:
+            raise ValueError(f"Site '{site_name}' not found")
+
+        position = np.asarray(self.data.site(site_id).xpos, dtype=np.float32)
+        xmat = np.asarray(self.data.site(site_id).xmat, dtype=np.float64)  # MuJoCo requires float64
+        quaternion = np.zeros(4, dtype=np.float64)  # MuJoCo requires float64
+        mujoco.mju_mat2Quat(quaternion, xmat)
+
+        return position, quaternion.astype(np.float32)  # Convert back to float32
+    
+    def update_gs_scene(self):
+        # Update all robot components using regular body poses
+        for name in self.robot_link_list:
+            trans, quat_wxyz = self._get_body_pose(name)
+            self.gs_renderer.set_obj_pose(name, trans, quat_wxyz)
+
+        # Update environment objects
+        for name in self.item_list:
+            trans, quat_wxyz = self._get_body_pose(name)
+            self.gs_renderer.set_obj_pose(name, trans, quat_wxyz)
+
+        def multiple_quaternion_vector3d(qwxyz, vxyz):
+            qw = qwxyz[..., 0]
+            qx = qwxyz[..., 1]
+            qy = qwxyz[..., 2]
+            qz = qwxyz[..., 3]
+            vx = vxyz[..., 0]
+            vy = vxyz[..., 1]
+            vz = vxyz[..., 2]
+            qvw = -vx*qx - vy*qy - vz*qz
+            qvx =  vx*qw - vy*qz + vz*qy
+            qvy =  vx*qz + vy*qw - vz*qx
+            qvz = -vx*qy + vy*qx + vz*qw
+            vx_ =  qvx*qw - qvw*qx + qvz*qy - qvy*qz
+            vy_ =  qvy*qw - qvz*qx - qvw*qy + qvx*qz
+            vz_ =  qvz*qw + qvy*qx - qvx*qy - qvw*qz
+            return torch.stack([vx_, vy_, vz_], dim=-1).cuda().requires_grad_(False)
+        
+        def multiple_quaternions(qwxyz1, qwxyz2):
+            q1w = qwxyz1[..., 0]
+            q1x = qwxyz1[..., 1]
+            q1y = qwxyz1[..., 2]
+            q1z = qwxyz1[..., 3]
+
+            q2w = qwxyz2[..., 0]
+            q2x = qwxyz2[..., 1]
+            q2y = qwxyz2[..., 2]
+            q2z = qwxyz2[..., 3]
+
+            qw_ = q1w * q2w - q1x * q2x - q1y * q2y - q1z * q2z
+            qx_ = q1w * q2x + q1x * q2w + q1y * q2z - q1z * q2y
+            qy_ = q1w * q2y - q1x * q2z + q1y * q2w + q1z * q2x
+            qz_ = q1w * q2z + q1x * q2y - q1y * q2x + q1z * q2w
+
+            return torch.stack([qw_, qx_, qy_, qz_], dim=-1).cuda().requires_grad_(False)
+
+        if self.gs_renderer.update_gauss_data:
+            self.gs_renderer.update_gauss_data = False
+            self.gs_renderer.renderer.need_rerender = True
+            self.gs_renderer.renderer.gaussians.xyz[self.gs_renderer.renderer.gau_env_idx:] = multiple_quaternion_vector3d(self.gs_renderer.renderer.gau_rot_all_cu[self.gs_renderer.renderer.gau_env_idx:], self.gs_renderer.renderer.gau_ori_xyz_all_cu[self.gs_renderer.renderer.gau_env_idx:]) + self.gs_renderer.renderer.gau_xyz_all_cu[self.gs_renderer.renderer.gau_env_idx:]
+            self.gs_renderer.renderer.gaussians.rot[self.gs_renderer.renderer.gau_env_idx:] = multiple_quaternions(self.gs_renderer.renderer.gau_rot_all_cu[self.gs_renderer.renderer.gau_env_idx:], self.gs_renderer.renderer.gau_ori_rot_all_cu[self.gs_renderer.renderer.gau_env_idx:])
+
+
+
+    def _get_body_pose(self, body_name: str) -> tuple[np.ndarray, np.ndarray]:
+        body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+        if body_id == -1:
+            raise ValueError(f"Body '{body_name}' not found")
+        
+        position = np.asarray(self.data.body(body_id).xpos, dtype=np.float32)
+        quaternion = np.asarray(self.data.body(body_id).xquat, dtype=np.float32)
+        
+        return position, quaternion
+
+    def map_action_to_joint_deltas(self, action: np.ndarray) -> np.ndarray:
+        """Map [-1, 1] action to joint angle increments."""
+        max_delta_per_step = np.array([
+            0.05, 0.03, 0.03, 0.03, 0.03, 0.05, 0.005
+        ], dtype=np.float32)
+        
+        # Ensure action is a numpy array with proper dtype
+        action = np.asarray(action, dtype=np.float32)
+        
+        return action * max_delta_per_step
+    
+    def apply_joint_deltas_with_limits(self, current_qpos: np.ndarray, delta_action: np.ndarray) -> np.ndarray:
+        """Apply delta action to current joint positions with limits."""
+        # Ensure arrays are proper numpy arrays with consistent dtype
+        current_qpos = np.asarray(current_qpos, dtype=np.float32)
+        delta_action = np.asarray(delta_action, dtype=np.float32)
+        
+        new_qpos = current_qpos + delta_action
+        lower_bounds = self.joint_limits[:, 0].astype(np.float32)
+        upper_bounds = self.joint_limits[:, 1].astype(np.float32)
+        return np.clip(new_qpos, lower_bounds, upper_bounds)
+
+    def _set_state(self, qpos_left=None, qvel_left=None, qpos_right=None, qvel_right=None, qpos_base=None, qvel_base=None):
+        """Set the state for mobile robot components.
+        
+        The mobile robot has:
+        - freejoint (7 DOF) for the base: indices 0-6 in qpos, 0-5 in qvel
+        - left arm joints: indices 7-14 in qpos (8 joints including both gripper fingers)
+        - right arm joints: indices 15-22 in qpos (8 joints including both gripper fingers)
+        - wheel joints: indices 23+ in qpos
+        
+        Args:
+            qpos_left: Left arm joint positions (8 values) or (7 values, will set joint8 automatically)
+            qvel_left: Left arm joint velocities (8 values) or (7 values)
+            qpos_right: Right arm joint positions (8 values) or (7 values)
+            qvel_right: Right arm joint velocities (8 values) or (7 values)
+            qpos_base: Base position and orientation [x, y, z, qw, qx, qy, qz] (7 values)
+            qvel_base: Base linear and angular velocities [vx, vy, vz, wx, wy, wz] (6 values)
+        """
+        
+        # Set base state (freejoint: 7 DOF in qpos, 6 DOF in qvel)
+        if qpos_base is not None:
+            qpos_base = np.asarray(qpos_base, dtype=np.float32)
+            assert qpos_base.shape == (7,), f"qpos_base must have shape (7,), got {qpos_base.shape}"
+            self.data.qpos[0:7] = np.copy(qpos_base)
+            
+        if qvel_base is not None:
+            qvel_base = np.asarray(qvel_base, dtype=np.float32)
+            assert qvel_base.shape == (6,), f"qvel_base must have shape (6,), got {qvel_base.shape}"
+            self.data.qvel[0:6] = np.copy(qvel_base)
+        
+        # Set left arm state (8 joints: left_joint1 through left_joint8)
+        if qpos_left is not None:
+            qpos_left = np.asarray(qpos_left, dtype=np.float32)
+            if qpos_left.shape == (7,):
+                # Only set joints 1-7, let joint8 be handled by equality constraint
+                self.data.qpos[7:14] = np.copy(qpos_left)
+            elif qpos_left.shape == (8,):
+                # Set all 8 joints explicitly
+                self.data.qpos[7:15] = np.copy(qpos_left)
+            else:
+                raise ValueError(f"qpos_left must have shape (7,) or (8,), got {qpos_left.shape}")
+                
+        if qvel_left is not None:
+            qvel_left = np.asarray(qvel_left, dtype=np.float32)
+            if qvel_left.shape == (7,):
+                # Only set velocities for joints 1-7 (dof_addr 6-12)
+                self.data.qvel[6:13] = np.copy(qvel_left)
+            elif qvel_left.shape == (8,):
+                # Set all 8 joint velocities (dof_addr 6-13)
+                self.data.qvel[6:14] = np.copy(qvel_left)
+            else:
+                raise ValueError(f"qvel_left must have shape (7,) or (8,), got {qvel_left.shape}")
+        
+        # Set right arm state (8 joints: right_joint1 through right_joint8)
+        if qpos_right is not None:
+            qpos_right = np.asarray(qpos_right, dtype=np.float32)
+            if qpos_right.shape == (7,):
+                # Only set joints 1-7, let joint8 be handled by equality constraint
+                self.data.qpos[15:22] = np.copy(qpos_right)
+            elif qpos_right.shape == (8,):
+                # Set all 8 joints explicitly
+                self.data.qpos[15:23] = np.copy(qpos_right)
+            else:
+                raise ValueError(f"qpos_right must have shape (7,) or (8,), got {qpos_right.shape}")
+                
+        if qvel_right is not None:
+            qvel_right = np.asarray(qvel_right, dtype=np.float32)
+            if qvel_right.shape == (7,):
+                # Only set velocities for joints 1-7 (dof_addr 14-20)
+                self.data.qvel[14:21] = np.copy(qvel_right)
+            elif qvel_right.shape == (8,):
+                # Set all 8 joint velocities (dof_addr 14-21)
+                self.data.qvel[14:22] = np.copy(qvel_right)
+            else:
+                raise ValueError(f"qvel_right must have shape (7,) or (8,), got {qvel_right.shape}")
+        
+        mujoco.mj_step(self.model, self.data)
+
+    def reset(self, seed=None, options=None):
+        if seed is not None:
+            self.seed(seed)
+        
+        # Initialize left arm joint positions (7 joints: 6 arm + 1 gripper)
+        qpos_left = np.zeros(7)
+        qvel_left = np.zeros(7)
+        qpos_left[1] = 1.1      # left_joint2
+        qpos_left[2] = -0.95    # left_joint3
+        qpos_left[4] = 0.976    # left_joint5
+        qpos_left[6] = 0.035    # left_gripper
+        
+        # Initialize base position
+        qpos_base = np.zeros(7)  # [x, y, z, qw, qx, qy, qz]
+        qpos_base[0] = 0.15      # x position from XML
+        qpos_base[1] = 0.0       # y position from XML  
+        qpos_base[2] = -0.133    # z position from XML
+        qpos_base[3] = 1.0       # qw = 1 (identity quaternion, euler="0 0 0")
+        qvel_base = np.zeros(6)  # [vx, vy, vz, wx, wy, wz]
+        
+        # Initialize right arm to neutral position (optional)
+        qpos_right = np.zeros(7)
+        qvel_right = np.zeros(7)
+
+        self._set_state(qpos_left=qpos_left, qvel_left=qvel_left, 
+                       qpos_base=qpos_base, qvel_base=qvel_base,
+                       qpos_right=qpos_right, qvel_right=qvel_right)
+        self._reset_object_pose()
+        
+        obs = self._get_observation()
+        
+        self.step_number = 0
+        self.goal_reached = False
+        self.contact_streak = 0
+
+        return obs, {}  # Gymnasium API returns (observation, info)
+    
+    def set_goal_pose(self, goal_body_name, position, quat_wxyz):
+        """Set target pose for a body."""
+        goal_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, goal_body_name)
+        if goal_body_id == -1:
+            raise ValueError(f"Body '{goal_body_name}' not found")
+
+        goal_joint_id = self.model.body_jntadr[goal_body_id]
+        goal_qposadr = self.model.jnt_qposadr[goal_joint_id]
+
+        if goal_qposadr + 7 <= self.model.nq:
+            self.data.qpos[goal_qposadr: goal_qposadr + 3] = position
+            self.data.qpos[goal_qposadr + 3: goal_qposadr + 7] = quat_wxyz
+    
+    def _reset_object_pose(self):
+        """Randomly place apple on table surface."""
+        item_name = "apple"
+        self.target_position, item_quat = self._get_body_pose(item_name)
+        
+        max_radius = 0.1
+        theta = np.random.uniform(0, 2 * np.pi)
+        rho = max_radius * np.sqrt(np.random.uniform(0, 1))
+        
+        # Table is at (0.7, 0, 0.73) with size 0.3x0.6x0.01115
+        # Apple should be placed on table surface
+        table_center_x = 0.7
+        table_center_y = 0.15
+        table_surface_height = 0.73 + 0.01115  # table center + half thickness
+        
+        x_world_target = rho * np.cos(theta) + table_center_x
+        y_world_target = rho * np.sin(theta) + table_center_y
+
+        self.target_position[0] = x_world_target
+        self.target_position[1] = y_world_target
+        self.target_position[2] = table_surface_height + 0.025  # Apple height offset
+        
+        self.set_goal_pose("apple", self.target_position, item_quat)
+        
+        # Reset apple velocity to zero
+        apple_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "apple")
+        if apple_body_id != -1:
+            apple_joint_id = self.model.body_jntadr[apple_body_id]
+            apple_qveladr = self.model.jnt_dofadr[apple_joint_id]
+            
+            # Reset linear and angular velocities to zero
+            self.data.qvel[apple_qveladr:apple_qveladr + 6] = 0.0
+
+    def _get_rgb_observation(self, camera_name):
+        """Get RGB camera observation."""
+        # Get camera ID
+        camera_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
+        if camera_id == -1:
+            raise ValueError(f"Camera '{camera_name}' not found")
+        
+        # Use persistent renderer for efficiency
+        if self._renderer is None:
+            try:
+                self._renderer = mujoco.Renderer(self.model, height=self.camera_height, width=self.camera_width)
+            except Exception as e:
+                print(f"Warning: Could not create renderer: {e}")
+                # Return dummy RGB array if rendering fails
+                return np.zeros((self.camera_height, self.camera_width, 3), dtype=np.uint8)
+        
+        try:
+            self._renderer.update_scene(self.data, camera=camera_id)
+            rgb_array = self._renderer.render()
+            return rgb_array.astype(np.uint8)
+        except Exception as e:
+            print(f"Warning: Rendering failed: {e}")
+            # Return dummy RGB array if rendering fails
+            return np.zeros((self.camera_height, self.camera_width, 3), dtype=np.uint8)
+    
+    def _get_state_observation(self):
+        """Get state observation: joint angles only."""
+        # Get joint states (7 joint angles from left arm joints 7-13, including gripper)
+        current_qpos = np.asarray(self.data.qpos[7:14], dtype=np.float32)
+        
+        # Return only joint angles: 7 dimensions
+        state_observation = current_qpos.astype(np.float32)
+        
+        return state_observation
+
+    def _get_observation(self):
+        """Get mixed observation: RGB camera + state."""
+        state_obs = self._get_state_observation()
+        if self.gs_render:
+            gs_obs_3rd = self.get_img("3rd")
+            # gs_obs_wrist = self.get_img("wrist_cam_left")
+            # RGB -> BGR
+            bgr_img = cv2.cvtColor(gs_obs_3rd, cv2.COLOR_RGB2BGR)
+
+            cv2.imshow("Gaussian Renderer Output", bgr_img)
+            cv2.waitKey(1)
+
+            return {
+                'rgb': gs_obs_3rd,
+                # 'wrist_rgb': gs_obs_wrist,
+                'state': state_obs
+            }
+        else:
+            rgb_obs_3rd = self._get_rgb_observation("3rd")
+            # rgb_obs_wrist = self._get_rgb_observation("wrist_cam_left")
+            return {
+                'rgb': rgb_obs_3rd,
+                # 'wrist_rgb': rgb_obs_wrist,
+                'state': state_obs
+            }
+
+    def _check_contact_between_bodies(self, body1_name: str, body2_name: str) -> tuple[bool, float]:
+        """Check contact between two bodies."""
+        body1_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, body1_name)
+        body2_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, body2_name)
+        
+        if body1_id == -1 or body2_id == -1:
+            return False, 0.0
+            
+        total_force = 0.0
+        contact_found = False
+        
+        for i in range(self.data.ncon):
+            contact = self.data.contact[i]
+            geom1_id = contact.geom1
+            geom2_id = contact.geom2
+            geom1_body = self.model.geom_bodyid[geom1_id]
+            geom2_body = self.model.geom_bodyid[geom2_id]
+            
+            if ((geom1_body == body1_id and geom2_body == body2_id) or 
+                (geom1_body == body2_id and geom2_body == body1_id)):
+                contact_found = True
+                contact_force = np.zeros(6)
+                mujoco.mj_contactForce(self.model, self.data, i, contact_force)
+                force_magnitude = np.linalg.norm(contact_force[:3])
+                total_force += force_magnitude
+                
+        return contact_found, total_force
+
+    def _check_gripper_contact_with_table(self) -> bool:
+        """Check if gripper contacts table."""
+        contact_found = False
+        
+        # Check all left arm links for contact with table
+        for i in range(1, 9):  # left_link1 through left_link8
+            link_name = f"left_link{i}"
+            link_contact, _ = self._check_contact_between_bodies(link_name, "desk")
+            if link_contact:
+                contact_found = True
+                break
+
+
+        return contact_found
+
+    def _check_gripper_contact_with_apple(self) -> bool:
+        """Check if gripper fingers (left_link7, left_link8) are in contact with apple."""
+        contact_found = 0
+        
+        for link_name in ["left_link7", "left_link8"]:
+            link_contact, _ = self._check_contact_between_bodies(link_name, "apple")
+            if link_contact:
+                contact_found += 1
+        
+        return contact_found == 2
+
+    def _check_apple_fell_off_table(self) -> bool:
+        """Check if apple fell off table."""
+        apple_position, _ = self._get_body_pose('apple')
+        x, y, z = apple_position
+        
+        # Table is at (0.7, 0, 0.73) with size 0.3x0.6x0.01115
+        table_center_x = 0.7
+        table_center_y = 0.0
+        table_size_x = 0.3
+        table_size_y = 0.6
+        table_surface_height = 0.73 + 0.01115
+        
+        table_x_min = table_center_x - table_size_x
+        table_x_max = table_center_x + table_size_x
+        table_y_min = table_center_y - table_size_y
+        table_y_max = table_center_y + table_size_y
+        
+        if x < table_x_min or x > table_x_max:
+            return True
+        if y < table_y_min or y > table_y_max:
+            return True
+        if z < table_surface_height - 0.05:
+            return True
+
+        return False
+
+    def _compute_reward(self):
+        """Compute reward for the current state."""
+        end_ee_position, end_ee_quat = self._get_site_pos_ori("left_ee")
+        apple_position, _ = self._get_body_pose('apple')
+        
+        tcp_to_obj_dist = np.linalg.norm(end_ee_position - apple_position)
+
+        reward = 0.0
+        # Stage 1: Reaching reward
+        reaching_reward = 1 - np.tanh(5 * tcp_to_obj_dist)
+        reward += reaching_reward
+
+        if tcp_to_obj_dist < 0.045:
+            reward += 1
+            
+            # Stage 1.5: Gripper closing reward when near apple
+            # Gripper joint is at index 6, with range [0, 0.035] where 0 is fully closed
+            gripper_pos = self.data.qpos[6]  # Current gripper position
+            gripper_closure = 1.0 - (gripper_pos / 0.035)  # Normalize to [0, 1] where 1 is fully closed
+            gripper_closure = np.clip(gripper_closure, 0, 1)  # Ensure it's in valid range
+            gripper_closing_reward = gripper_closure * 0.5  # Scale the reward
+            reward += gripper_closing_reward
+            
+            # Stage 2: Grasping reward
+            if self._check_gripper_contact_with_apple():
+                print("Gripper is grasping the apple.")
+                reward += 1
+
+                # === Stage 3: Lifting Reward ===
+                # This logic only runs IF the gripper is holding the apple.
+                
+                # 1. The Dense Lifting Reward
+                TABLE_HEIGHT = 0.73 + 0.01115
+                TARGET_LIFT_HEIGHT = TABLE_HEIGHT + 0.1
+                current_height = apple_position[2]
+                
+                # Only give lifting reward if apple is actually being lifted above table
+                if current_height > TABLE_HEIGHT:
+                    # Calculate how high the apple is relative to its start and goal positions.
+                    lift_progress = (current_height - TABLE_HEIGHT) / (TARGET_LIFT_HEIGHT - TABLE_HEIGHT)
+                    # Clip progress between 0 and 1 to prevent runaway rewards
+                    lift_progress = np.clip(lift_progress, 0, 1)
+                    reward += lift_progress
+
+                    # 2. The Success Bonus
+                    if current_height >= TARGET_LIFT_HEIGHT:
+                        print("Lift goal reached!")
+                        reward += 10
+                        self.goal_reached = True
+
+        # Apple fell off table penalty
+        apple_fell = self._check_apple_fell_off_table()
+        if apple_fell:
+            reward -= 5
+            self.goal_reached = False
+
+        # Table contact penalty
+        table_contact = self._check_gripper_contact_with_table()
+        if table_contact:
+            print("Gripper is in contact with the table.")
+            self.contact_streak += 1
+            reward -= 5.0
+            
+            # Large penalty for persistent table contact
+            if self.contact_streak > self.max_contact_streak:
+                # print("Persistent table contact detected.")
+                reward -= 10.0
+        else:
+            self.contact_streak = 0
+
+        return reward
+
+    def step(self, action):
+        """Execute one environment step."""
+        delta_action = self.map_action_to_joint_deltas(action)
+        current_qpos = self.data.qpos[7:14].copy()  # Left arm joints (indices 7-13 in qpos)
+        new_qpos = self.apply_joint_deltas_with_limits(current_qpos, delta_action)
+        
+        # Set all controls to 0 first, then set left arm controls
+        self.data.ctrl[:] = 0.0
+        self.data.ctrl[2:9] = new_qpos  # Left arm control indices 2-8 (based on actuator section in XML)
+        
+        for i in range(15):
+            mujoco.mj_step(self.model, self.data)
+            
+            # Render if viewer is available
+            if self.render_mode and self.handle:
+                self.handle.sync()
+            
+            time.sleep(0.002)
+            
+            current_qpos = self.data.qpos[7:14].copy()  # Left arm joints
+            pos_err = np.linalg.norm(new_qpos - current_qpos)
+
+            
+        if self.gs_render:
+            self.update_gs_scene()
+
+        self.step_number += 1
+        observation = self._get_observation()
+        reward = self._compute_reward()
+
+        apple_fell = self._check_apple_fell_off_table()
+        contact_max = self.contact_streak > self.max_contact_streak
+        terminated = self.goal_reached or apple_fell or contact_max
+
+        truncated = self.step_number >= self.episode_len
+
+        info = {
+            'is_success': self.goal_reached,
+            'total_reward': reward,
+            'step_number': self.step_number,
+            'goal_reached': self.goal_reached,
+            'current_qpos': current_qpos.copy(),
+            'delta_action': delta_action.copy(),
+            'new_qpos': new_qpos.copy(),
+        }
+
+        return observation, reward, terminated, truncated, info  # Gymnasium API
+
+    def get_img(self, camera_name):
+        camera_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
+        if camera_id == -1:
+            raise ValueError(f"Camera '{camera_name}' not found")
+        # print(f"Camera ID: {cam_id}, Name: {cam_name}")
+        cam_pos = self.data.cam_xpos[camera_id]
+        cam_rot = self.data.cam_xmat[camera_id].reshape((3, 3))
+        cam_quat = R.from_matrix(cam_rot).as_quat()
+
+        # 设置gs相机参数，渲染图像
+        self.gs_renderer.set_camera_fovy(self.rgb_fovy * np.pi / 180.)
+        self.gs_renderer.set_camera_pose(cam_pos, cam_quat)
+        with torch.inference_mode():
+            rgb_img = self.gs_renderer.render()
+
+
+        if isinstance(rgb_img, torch.Tensor):
+            rgb_img = rgb_img.detach().cpu().numpy()
+
+        # 如果是 [3, H, W] 格式，转成 [H, W, 3]
+        if rgb_img.shape[0] == 3 and len(rgb_img.shape) == 3:
+            rgb_img = np.transpose(rgb_img, (1, 2, 0))
+
+        # 确保值在 [0,1] 范围，并转换为 uint8
+        rgb_img = np.clip(rgb_img, 0, 1)
+        rgb_img = (rgb_img * 255).astype(np.uint8)
+        return rgb_img
+
+    def seed(self, seed=None):
+        self.np_random = np.random.default_rng(seed)
+        return [seed]
+
+    def close(self):
+        """Clean up resources"""
+        if self._renderer is not None:
+            self._renderer.close()
+            self._renderer = None
+        super().close()
+
+    def __del__(self):
+        """Destructor to ensure cleanup."""
+        self.close()
+
+
+def make_env():
+    """Factory function to create PiperEnv."""
+    return PiperEnv(render_mode=None)
+
+import cv2
+import numpy as np
+if __name__ == "__main__":
+    # Simple test
+    env = PiperEnv(render_mode="human")
+    obs, info = env.reset()
+    print(f"Observation type: {type(obs)}")
+    print(f"Observation keys: {obs.keys()}")
+    print(f"RGB shape: {obs['rgb'].shape}")
+    print(f"State shape: {obs['state'].shape}")
+    print(f"Action space: {env.action_space}")
+    import time
+    
+    for i in range(1000):
+        action = env.action_space.sample()
+        obs, reward, terminated, truncated, info = env.step(action)
+        print(f"Step {i}: reward={reward:.3f}, terminated={terminated}, truncated={truncated}") 
+        if terminated or truncated:
+            obs, info = env.reset()

@@ -6,7 +6,7 @@ import numpy as np
 import mujoco
 import mujoco.viewer
 import time
-from single_piper_on_desk_env import PiperEnv
+from mobile_robot_env import PiperEnv
 
 
 def batch_visualization(num_resets=20):
@@ -34,7 +34,7 @@ def batch_visualization(num_resets=20):
             if hasattr(env, 'handle') and env.handle:
                 env.handle.sync()
             
-            time.sleep(0.2)  # Pause to see each position
+            time.sleep(0.05)  # Pause to see each position
     
     finally:
         # Print statistics
@@ -55,7 +55,7 @@ def batch_visualization(num_resets=20):
 
 
 def main():
-    num_resets = 100
+    num_resets = 1000
     batch_visualization(num_resets)
 
 

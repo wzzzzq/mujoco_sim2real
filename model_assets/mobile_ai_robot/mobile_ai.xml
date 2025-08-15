@@ -209,7 +209,7 @@
               group="1" 
               mass="0"/>
 
-        <camera name="3rd" pos="0.15 0.0 1.25" fovy="58" mode="fixed" euler="0 -1.23 -1.57"/>
+        <camera name="3rd" pos="0.15 0.0 1.35" fovy="58" mode="fixed" euler=" 0 -0.9 -1.57"/>
         <site name="lidar_site" pos="0.09 0 1.33" size="0.001" type='sphere' rgba="1 0 0 0.5"/>
         <inertial pos="-0.02 0 0.6"    
                   mass="5.0"       

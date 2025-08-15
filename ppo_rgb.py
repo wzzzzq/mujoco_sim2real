@@ -17,7 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 # ManiSkill specific imports - removed, using custom environment
 # Import our custom environment
-from single_piper_on_desk_env import PiperEnv
+from mobile_robot_env import PiperEnv
 
 @dataclass
 class PPOArgs:
@@ -217,6 +217,36 @@ class NatureCNN(nn.Module):
         extractors["rgb"] = nn.Sequential(cnn, fc)
         self.out_features += feature_size
 
+        # Add wrist camera processing with same architecture
+        if "wrist_rgb" in sample_obs:
+            wrist_in_channels = sample_obs["wrist_rgb"].shape[-1]
+            wrist_cnn = nn.Sequential(
+                nn.Conv2d(
+                    in_channels=wrist_in_channels,
+                    out_channels=32,
+                    kernel_size=8,
+                    stride=4,
+                    padding=0,
+                ),
+                nn.ReLU(),
+                nn.Conv2d(
+                    in_channels=32, out_channels=64, kernel_size=4, stride=2, padding=0
+                ),
+                nn.ReLU(),
+                nn.Conv2d(
+                    in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=0
+                ),
+                nn.ReLU(),
+                nn.Flatten(),
+            )
+            
+            with torch.no_grad():
+                n_flatten_wrist = wrist_cnn(sample_obs["wrist_rgb"].float().permute(0,3,1,2).cpu()).shape[1]
+                wrist_fc = nn.Sequential(nn.Linear(n_flatten_wrist, feature_size), nn.ReLU())
+            
+            extractors["wrist_rgb"] = nn.Sequential(wrist_cnn, wrist_fc)
+            self.out_features += feature_size
+
         if "state" in sample_obs:
             # for state data we simply pass it through a single linear layer
             state_size = sample_obs["state"].shape[-1]
@@ -230,7 +260,7 @@ class NatureCNN(nn.Module):
         # self.extractors contain nn.Modules that do all the processing.
         for key, extractor in self.extractors.items():
             obs = observations[key]
-            if key == "rgb":
+            if key in ["rgb", "wrist_rgb"]:
                 obs = obs.float().permute(0,3,1,2)
                 obs = obs / 255
             encoded_tensor_list.append(extractor(obs))
@@ -360,7 +390,7 @@ def train(args: PPOArgs):
             config["eval_env_cfg"] = dict(num_envs=args.num_eval_envs, env_id="PiperEnv", env_horizon=max_episode_steps)
             # Add additional config for better tracking
             config["observation_type"] = "RGB + State"
-            config["state_dim"] = 13
+            config["state_dim"] = 7
             config["rgb_shape"] = (128, 128, 3)
             config["action_dim"] = 7
             config["network_type"] = "NatureCNN + State"
@@ -410,7 +440,7 @@ def train(args: PPOArgs):
     def convert_obs(obs_dict):
         converted = {}
         for key, value in obs_dict.items():
-            if key == "rgb":
+            if key in ["rgb", "wrist_rgb"]:
                 converted[key] = torch.tensor(value, dtype=torch.uint8, device=device)
             elif key == "state":
                 converted[key] = torch.tensor(value, dtype=torch.float32, device=device)

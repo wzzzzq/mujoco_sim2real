@@ -28,7 +28,7 @@ try:
 except ImportError:
     IMAGEIO_AVAILABLE = False
 
-from single_piper_on_desk_env import PiperEnv
+from mobile_robot_env import PiperEnv
 
 
 def test_policy(checkpoint_path, num_episodes=3, deterministic=True, max_steps=128, render=True, save_video=False, video_path=None):
@@ -104,6 +104,7 @@ def test_policy(checkpoint_path, num_episodes=3, deterministic=True, max_steps=1
     # Create a sample observation for network initialization
     sample_obs = {
         'rgb': torch.tensor(obs['rgb']).unsqueeze(0),
+        #'wrist_rgb': torch.tensor(obs['wrist_rgb']).unsqueeze(0),
         'state': torch.tensor(obs['state']).unsqueeze(0)
     }
     
@@ -116,7 +117,7 @@ def test_policy(checkpoint_path, num_episodes=3, deterministic=True, max_steps=1
         """Convert observation dict to tensor format and get action."""
         converted = {}
         for key, value in obs_dict.items():
-            if key == "rgb":
+            if key in ["rgb", "wrist_rgb"]:
                 converted[key] = torch.tensor(value, dtype=torch.uint8, device=device).unsqueeze(0)
             elif key == "state":
                 converted[key] = torch.tensor(value, dtype=torch.float32, device=device).unsqueeze(0)

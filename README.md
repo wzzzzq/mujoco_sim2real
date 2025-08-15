@@ -7,17 +7,9 @@ PPO RGB policy training for Piper robot manipulation tasks in MuJoCo simulation.
 ### Install Dependencies
 ```bash
 conda create -n mujoco_sim2real python==3.10.9
-
 conda activate mujoco_sim2real
-
+pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
-
-
-pip install open3d
-pip install plyfile
-pip install opencv-python
-pip install einops e3nn rpyc
-pip install cmake ninja pybind11 scikit-image imageio iopath
 
 # install pytorch 3d from source
 cd submodules/
@@ -48,8 +40,8 @@ python -m mujoco_sim2real.train_ppo_rgb \
 To train without rendering (faster, multiple environments):
 ```python
 python -m mujoco_sim2real.train_ppo_rgb \
---ppo.total-timesteps 10000000 \
---ppo.num-envs 25 \
+--ppo.total-timesteps 5000000 \
+--ppo.num-envs 100 \
 --ppo.num-eval-envs 4 \
 --ppo.learning-rate 3e-4 \
 --ppo.num-minibatches 8 \
